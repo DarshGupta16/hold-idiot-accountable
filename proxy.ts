@@ -1,0 +1,57 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+/**
+ * Middleware Proxy
+ * Handles authentication for protected routes via session cookies.
+ * Skips public paths, static assets, and API webhooks.
+ */
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // 1. Public Path Exclusion
+  if (
+    pathname.startsWith("/api/webhooks") || // Protected by API Key, not cookie
+    pathname.startsWith("/api/auth") || // Auth endpoints
+    pathname.startsWith("/_next") || // Next.js internals
+    pathname === "/favicon.ico" ||
+    pathname === "/login"
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Session Check
+  const cookie = req.cookies.get("hia_session");
+
+  if (!cookie) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  try {
+    // 3. Verify Signature
+    // HIA_CLIENT_PASSWORD is used as the JWT secret
+    const secret = new TextEncoder().encode(process.env.HIA_CLIENT_PASSWORD);
+    await jwtVerify(cookie.value, secret);
+
+    return NextResponse.next();
+  } catch (_err) {
+    // Invalid/Expired Token -> Redirect to Login
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.delete("hia_session");
+    return response;
+  }
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/webhooks
+     * - _next/static
+     * - _next/image
+     * - favicon.ico
+     */
+    "/((?!api/webhooks|_next/static|_next/image|favicon.ico).*)",
+  ],
+};

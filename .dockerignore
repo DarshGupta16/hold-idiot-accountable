@@ -1,0 +1,15 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+README.md
+.next
+.git
+.env*
+pb_data
+AppImages*
+cookies.txt
+pocketbase
+*.pem
+.DS_Store
+coverage
