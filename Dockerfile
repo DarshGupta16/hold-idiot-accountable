@@ -9,6 +9,10 @@ RUN sed -i '/import "dotenv\/config";/d' worker.ts
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
+# Add dummy environment variables to pass build-time validation/static generation
+ENV GROQ_API_KEY="dummy_key_for_build"
+ENV POCKETBASE_ADMIN_EMAIL="dummy_email_for_build"
+ENV POCKETBASE_ADMIN_PASSWORD="dummy_pass_for_build"
 RUN npm run build
 
 # Bundle worker.ts into a single file
