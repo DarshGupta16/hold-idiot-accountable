@@ -65,9 +65,10 @@ export async function GET(req: NextRequest) {
   if (config.isProd && lastHeartbeat?.timestamp && activeSession) {
     const hbTime = new Date(lastHeartbeat.timestamp).getTime();
     const nowTime = Date.now();
-    const diffMinutes = (nowTime - hbTime) / 1000 / 60;
+    const diffSeconds = (nowTime - hbTime) / 1000;
+    const diffMinutes = diffSeconds / 60;
 
-    if (diffMinutes > 2) {
+    if (diffSeconds > 33) {
       const lastLog = logs.length > 0 ? logs[0] : null;
       const alreadyLogged = lastLog?.type === "missed_heartbeat";
 

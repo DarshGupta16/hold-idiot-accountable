@@ -4,7 +4,7 @@ import { config } from "@/lib/backend/config";
 import PocketBase from "pocketbase";
 
 // Constants
-const HEARTBEAT_THRESHOLD_MINUTES = 2;
+const HEARTBEAT_THRESHOLD_SECONDS = 33;
 const LOG_DEBOUNCE_MINUTES = 5;
 
 // Validation
@@ -23,10 +23,11 @@ async function checkHeartbeat() {
   try {
     // 1. Authenticate if needed
     if (!pb.authStore.isValid) {
-      // PocketBase v0.23+ uses _superusers collection for admin auth
+      console.log("[Worker] Authenticating with PocketBase...");
       await pb
         .collection("_superusers")
         .authWithPassword(config.adminEmail, config.adminPassword!);
+      console.log("[Worker] Authentication successful.");
     }
 
     // 2. Get Last Heartbeat
@@ -38,33 +39,44 @@ async function checkHeartbeat() {
           .getFirstListItem('key = "lastHeartbeatAt"')
       ).value;
     } catch {
-      // No heartbeat recorded yet; silent return.
+      // No heartbeat recorded yet
+      console.log(
+        "[Worker] No heartbeat record found. Waiting for first heartbeat...",
+      );
       return;
     }
 
-    if (!lastHeartbeat?.timestamp) return;
+    if (!lastHeartbeat?.timestamp) {
+      console.log("[Worker] Heartbeat record exists but has no timestamp.");
+      return;
+    }
 
     const hbTime = new Date(lastHeartbeat.timestamp).getTime();
     const nowTime = Date.now();
     const diffMinutes = (nowTime - hbTime) / 1000 / 60;
+    const diffSeconds = (nowTime - hbTime) / 1000;
+
+    console.log(`[Worker] Last heartbeat: ${diffSeconds.toFixed(1)}s ago`);
 
     // 3. Check threshold
-    if (diffMinutes > HEARTBEAT_THRESHOLD_MINUTES) {
+    if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS) {
       // 4. Check for Active Session
-      // We only care about missed heartbeats if a session is supposedly active.
       let activeSessionId = null;
       try {
         const session = await pb
           .collection("study_sessions")
           .getFirstListItem('status = "active"');
         activeSessionId = session.id;
+        console.log(`[Worker] Active session found: ${activeSessionId}`);
       } catch {
         // No active session -> No need to alert for missed heartbeats.
+        console.log(
+          "[Worker] No active session. Skipping missed heartbeat check.",
+        );
         return;
       }
 
       // 5. Check if recently logged to prevent spam
-      // Efficient query: only get the very last missed_heartbeat log
       const recentLogs = await pb.collection("logs").getList(1, 1, {
         sort: "-created_at",
         filter: 'type = "missed_heartbeat"',
@@ -73,10 +85,14 @@ async function checkHeartbeat() {
       const lastLog = recentLogs.items[0];
       const recentlyLogged =
         lastLog &&
-        nowTime - new Date(lastLog.created).getTime() <
+        nowTime - new Date(lastLog.created_at).getTime() <
           LOG_DEBOUNCE_MINUTES * 60 * 1000;
 
-      if (!recentlyLogged) {
+      if (recentlyLogged) {
+        console.log(
+          "[Worker] Already logged a missed heartbeat recently. Debouncing...",
+        );
+      } else {
         console.log(
           `[Worker] MISSING HEARTBEAT detected! Gap: ${diffMinutes.toFixed(2)}m`,
         );
@@ -92,6 +108,7 @@ async function checkHeartbeat() {
           },
           session: activeSessionId,
         });
+        console.log("[Worker] Missed heartbeat logged successfully.");
       }
     }
   } catch (e) {
@@ -101,5 +118,9 @@ async function checkHeartbeat() {
 
 // Start Worker
 console.log("[Worker] Starting Heartbeat Monitor...");
+console.log(`[Worker] PocketBase URL: ${config.pocketbaseUrl}`);
+console.log(
+  `[Worker] Threshold: ${HEARTBEAT_THRESHOLD_SECONDS}s, Debounce: ${LOG_DEBOUNCE_MINUTES}m`,
+);
 checkHeartbeat(); // Run immediately
-setInterval(checkHeartbeat, 60 * 1000); // Loop every minute
+setInterval(checkHeartbeat, 30 * 1000); // Loop every 30s for tighter check

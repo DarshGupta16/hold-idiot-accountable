@@ -4,8 +4,9 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 
-# Remove dotenv import from worker.ts for production (environment variables are used instead)
-RUN sed -i '/import "dotenv\/config";/d' worker.ts
+# Remove dotenv import from worker.ts for production (environment variables are injected by Docker instead)
+RUN sed -i '/import dotenv from "dotenv";/d' worker.ts && \
+    sed -i '/dotenv.config/d' worker.ts
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -16,8 +17,8 @@ ENV POCKETBASE_ADMIN_PASSWORD="dummy_pass_for_build"
 RUN npm run build
 
 # Bundle worker.ts into a single file
-# This bundles dependencies (pocketbase) so node_modules isn't needed for the worker
-RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js
+# Use tsconfig-paths plugin to resolve @/* path aliases
+RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js --alias:@=.
 
 # Production image, copy all the files and run next
 FROM node:20-alpine AS runner

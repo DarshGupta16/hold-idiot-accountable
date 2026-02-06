@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
 import { config } from "./config";
+import { formatDuration } from "@/lib/utils";
 
 const groq = new Groq({
   apiKey: config.groqApiKey,
@@ -20,7 +21,7 @@ export async function generateSessionSummary(
   },
 ): Promise<AIResult> {
   const logStream = logs
-    .map((l) => `[${l.created}] ${l.type.toUpperCase()}: ${l.message}`)
+    .map((l) => `[${l.created_at}] ${l.type.toUpperCase()}: ${l.message}`)
     .join("\n");
 
   const prompt = `
@@ -30,10 +31,10 @@ Your goal is to reflect the user's focus session back to them truthfully.
 Context:
 - Subject: ${sessionContext.subject}
 - Status: ${sessionContext.status}
-- Planned Duration: ${Math.floor(sessionContext.plannedDuration / 60)}m
+- Planned Duration: ${formatDuration(sessionContext.plannedDuration)}
 - Actual Duration: ${
     sessionContext.actualDuration
-      ? Math.floor(sessionContext.actualDuration / 60) + "m"
+      ? formatDuration(Math.floor(sessionContext.actualDuration))
       : "Ongoing"
   }
 
@@ -48,7 +49,8 @@ Instructions:
      "status_label": "ONE OF: FOCUSED, DISTRACTED, MIXED"
    }
 3. 'summary_text' should be calm, non-judgmental, and truth-telling.
-4. Do not include markdown formatting like \`\`\`json. Just the raw JSON.
+4. When mentioning durations in summary_text, use human-readable format like "2hr 15min" or "20min" instead of seconds.
+5. Do not include markdown formatting like \`\`\`json. Just the raw JSON.
 `;
 
   try {

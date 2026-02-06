@@ -1,6 +1,22 @@
 import { z } from "zod";
 
-// --- Event Enums ---
+// Re-export PocketBase schema types from centralized schema file
+export type {
+  StudySession,
+  Log,
+  Variable,
+  SessionStatus as SessionStatusType,
+  LogType,
+  HeartbeatValue,
+  SummaryValue,
+} from "./schema";
+
+// Backward compatibility aliases
+export type { StudySession as StudySessionRecord } from "./schema";
+export type { Log as LogRecord } from "./schema";
+export type { Variable as VariableRecord } from "./schema";
+
+// --- Event Enums (for webhook processing) ---
 
 export enum EventType {
   HEARTBEAT = "HEARTBEAT",
@@ -58,31 +74,3 @@ export const WebhookEventSchema = z.union([
 ]);
 
 export type WebhookEvent = z.infer<typeof WebhookEventSchema>;
-
-// --- Database Schemas (PocketBase) ---
-
-export interface StudySessionRecord {
-  id: string;
-  created: string;
-  updated: string;
-  started_at: string;
-  ended_at?: string;
-  planned_duration_sec: number;
-  subject: string;
-  status: SessionStatus;
-  end_note?: string;
-}
-
-export interface LogRecord {
-  id: string;
-  created: string;
-  type: string;
-  message: string;
-  metadata?: any;
-  session?: string; // Relation ID
-}
-
-export interface VariableRecord {
-  key: string;
-  value: any;
-}

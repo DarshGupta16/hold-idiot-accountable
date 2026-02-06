@@ -47,7 +47,7 @@ A script runs periodically (every 30s) on my homelab to ensure I'm staying hones
 I run a standalone `worker.ts` process alongside the web server:
 
 - It monitors the **Heartbeat** timestamp in PocketBase.
-- If it misses even a single heartbeat (detected after 2 minutes) while a session is active, it logs a `MISSED_HEARTBEAT` event.
+- If it misses even a single heartbeat (detected after 33 seconds) while a session is active, it logs a `MISSED_HEARTBEAT` event.
 - This ensures I can't just turn off my homelab or disconnect from the network to bypass the blocks.
 
 ---

@@ -14,6 +14,7 @@ import {
   ensureNoActiveSession,
   getActiveSession,
 } from "./invariants";
+import { formatDuration } from "@/lib/utils";
 
 export async function processHeartbeat(
   payload: z.infer<typeof HeartbeatSchema>,
@@ -78,7 +79,7 @@ export async function processSessionStart(
 
   await pb.collection("logs").create({
     type: EventType.SESSION_START.toLowerCase(),
-    message: `Session started: ${payload.subject} for ${payload.planned_duration_sec}s`,
+    message: `Session started: ${payload.subject} for ${formatDuration(payload.planned_duration_sec)}`,
     metadata: payload,
     session: session.id,
   });
@@ -109,7 +110,7 @@ export async function processSessionStop(
 
   await pb.collection("logs").create({
     type: "session_end",
-    message: `Session ${newStatus}. Ran for ${Math.floor(elapsedSeconds)}s (Planned: ${session.planned_duration_sec}s)`,
+    message: `Session ${newStatus}. Ran for ${formatDuration(Math.floor(elapsedSeconds))} (Planned: ${formatDuration(session.planned_duration_sec)})`,
     metadata: {
       ...payload,
       actual_duration: elapsedSeconds,

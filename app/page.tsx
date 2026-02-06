@@ -7,7 +7,8 @@ import { Timeline } from "@/components/ui/Timeline";
 import { Navigation } from "@/components/ui/Navigation";
 import useSWR from "swr";
 import { useMemo, useEffect, useState } from "react";
-import { LogRecord } from "@/lib/backend/types";
+import { Log } from "@/lib/backend/schema";
+import { parsePocketBaseDate } from "@/lib/utils";
 
 // Fetcher
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -64,7 +65,7 @@ export default function Home() {
   const timelineEvents = useMemo(() => {
     if (!logs) return [];
 
-    return logs.map((log: LogRecord) => {
+    return logs.map((log: Log) => {
       // Map Log Type to Timeline Type
       let type: "START" | "END" | "BREACH" | "WARNING" | "INFO" = "INFO";
       if (log.type === "session_start") type = "START";
@@ -74,7 +75,7 @@ export default function Home() {
 
       return {
         id: log.id,
-        time: new Date(log.created).toLocaleTimeString([], {
+        time: parsePocketBaseDate(log.created_at).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
