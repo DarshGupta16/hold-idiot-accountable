@@ -13,3 +13,4 @@ pocketbase
 *.pem
 .DS_Store
 coverage
+scripts

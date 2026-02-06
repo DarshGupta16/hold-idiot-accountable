@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
 import { verifySession } from "@/lib/backend/auth";
 import { generateSessionSummary } from "@/lib/backend/ai";
-import { SessionStatus } from "@/lib/backend/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     // We want to summarize whatever is "current" or "just finished"
     // So usually we fetch the last created session.
     const session = await pb.collection("study_sessions").getFirstListItem("", {
-      sort: "-created",
+      sort: "-created_at",
     });
 
     if (!session) {
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
     // 3. Fetch logs for that session
     const logs = await pb.collection("logs").getFullList({
       filter: `session = "${session.id}"`,
-      sort: "created",
+      sort: "created_at",
     });
 
     // 4. Calculate Duration

@@ -7,11 +7,12 @@ import {
   processSessionStop,
   processBlocklistEvent,
 } from "@/lib/backend/derivation";
+import { config } from "@/lib/backend/config";
 
 export async function POST(req: NextRequest) {
   // 1. Authorization Check
   const authKey = req.headers.get("x-hia-access-key");
-  if (authKey !== process.env.HIA_HOMELAB_KEY) {
+  if (authKey !== config.hiaHomelabKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

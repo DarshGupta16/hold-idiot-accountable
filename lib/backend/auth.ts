@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { config } from "./config";
 
 /**
  * Verifies the HIA session cookie to ensure the request is authenticated.
@@ -13,7 +14,8 @@ export async function verifySession(req: NextRequest): Promise<boolean> {
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.HIA_CLIENT_PASSWORD);
+    // Use config for cleaner access
+    const secret = new TextEncoder().encode(config.hiaClientPassword || "");
     await jwtVerify(cookie.value, secret);
     return true;
   } catch (err) {

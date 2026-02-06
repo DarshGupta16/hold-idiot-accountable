@@ -42,3 +42,8 @@ next-env.d.ts
 
 cookies.txt
 pb_data
+
+# scripts
+/scripts
+setup_test_state.ts
+debug_sessions.ts

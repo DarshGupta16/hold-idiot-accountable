@@ -117,6 +117,47 @@ export async function processSessionStop(
     },
     session: session.id,
   });
+
+  // Generate AI Summary immediately
+  try {
+    const { generateSessionSummary } = await import("./ai");
+
+    // Fetch all logs for context
+    const logs = await pb.collection("logs").getFullList({
+      filter: `session = "${session.id}"`,
+      sort: "created_at",
+    });
+
+    const aiResult = await generateSessionSummary(logs, {
+      subject: session.subject,
+      status: newStatus,
+      plannedDuration: session.planned_duration_sec,
+      actualDuration: elapsedSeconds,
+    });
+
+    // Upsert summary variable
+    const serverNowStr = new Date().toISOString();
+    const variablePayload = {
+      ...aiResult,
+      generated_at: serverNowStr,
+      session_id: session.id,
+    };
+
+    try {
+      const existing = await pb
+        .collection("variables")
+        .getFirstListItem('key="summary"');
+      await pb
+        .collection("variables")
+        .update(existing.id, { value: variablePayload });
+    } catch {
+      await pb
+        .collection("variables")
+        .create({ key: "summary", value: variablePayload });
+    }
+  } catch (e) {
+    console.error("Failed to generate summary in backend:", e);
+  }
 }
 
 export async function processBlocklistEvent(

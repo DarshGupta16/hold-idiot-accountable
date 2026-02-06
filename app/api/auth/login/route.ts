@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
+import { config } from "@/lib/backend/config";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { password } = body;
 
-    const correctPassword = process.env.HIA_CLIENT_PASSWORD;
+    const correctPassword = config.hiaClientPassword;
 
     if (!correctPassword) {
       console.error("HIA_CLIENT_PASSWORD is not set in environment variables");
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create session token
-    const secret = new TextEncoder().encode(process.env.HIA_CLIENT_PASSWORD); // Use the password itself as secret for now, or better HIA_JWT_SECRET if available.
+    const secret = new TextEncoder().encode(config.hiaClientPassword || ""); // Use the password itself as secret for now, or better HIA_JWT_SECRET if available.
     // Plan didn't specify separate secret, but good practice. using password for simplicity given strict "shared secret" model.
     // Actually, let's look for a better secret if possible, or fallback.
     const alg = "HS256";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     response.cookies.set("hia_session", jwt, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: config.isProd,
       sameSite: "strict",
       maxAge: 60 * 60 * 24 * 30, // 30 days
       path: "/",

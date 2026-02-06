@@ -10,8 +10,9 @@ export function getPocketBase() {
 }
 
 /**
- * Returns a PocketBase instance authenticated as the admin.
+ * Returns a PocketBase instance authenticated as the admin (superuser).
  * Use this for backend operations that require elevated privileges.
+ * Note: PocketBase v0.23+ uses "_superusers" collection instead of "/api/admins".
  */
 export async function getAuthenticatedPocketBase() {
   const client = getPocketBase();
@@ -21,10 +22,10 @@ export async function getAuthenticatedPocketBase() {
   }
 
   try {
-    await client.admins.authWithPassword(
-      config.adminEmail,
-      config.adminPassword,
-    );
+    // PocketBase v0.23+ uses _superusers collection for admin auth
+    await client
+      .collection("_superusers")
+      .authWithPassword(config.adminEmail, config.adminPassword);
   } catch (e) {
     console.error("Failed to authenticate PocketBase admin:", e);
     throw new Error("Failed to authenticate PocketBase admin");

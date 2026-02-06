@@ -53,6 +53,7 @@ COPY --from=builder /app/.next/static ./.next/static
 
 # Copy worker and config
 COPY --from=builder /app/worker.js ./worker.js
+COPY --from=builder /app/pb_migrations ./pb_migrations
 COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
 
 # Expose the Next.js port

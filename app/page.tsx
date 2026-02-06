@@ -7,6 +7,7 @@ import { Timeline } from "@/components/ui/Timeline";
 import { Navigation } from "@/components/ui/Navigation";
 import useSWR from "swr";
 import { useMemo, useEffect, useState } from "react";
+import { LogRecord } from "@/lib/backend/types";
 
 // Fetcher
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -51,8 +52,9 @@ export default function Home() {
 
   // Derived State
   const status = useMemo(() => {
-    if (isLoading) return "IDLE"; // Or "LOADING..."
+    if (isLoading) return "IDLE";
     if (data?.activeSession) return "FOCUSING";
+    if (data?.summary) return "REFLECTION"; // New state: Idle but showing last session
     return "IDLE";
   }, [data, isLoading]);
 
@@ -62,7 +64,7 @@ export default function Home() {
   const timelineEvents = useMemo(() => {
     if (!logs) return [];
 
-    return logs.map((log: any) => {
+    return logs.map((log: LogRecord) => {
       // Map Log Type to Timeline Type
       let type: "START" | "END" | "BREACH" | "WARNING" | "INFO" = "INFO";
       if (log.type === "session_start") type = "START";
@@ -89,15 +91,20 @@ export default function Home() {
     <main className="min-h-screen pb-24 transition-colors duration-700">
       <MissedHeartbeatModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
-        status={status}
-        subject={data?.activeSession?.subject}
+        status={status === "REFLECTION" ? "IDLE" : status} // StatusPanel doesn't need to know about Reflection
+        subject={data?.activeSession?.subject || data?.summary?.subject} // Show subject of last session if reflecting
         duration={elapsed}
       />
 
-      {status === "FOCUSING" && (
+      {(status === "FOCUSING" || status === "REFLECTION") && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-backwards">
-          <SummaryPanel summary="Session active. Monitoring for interruptions." />
-          {/* Static summary for now, could be dynamic based on last log */}
+          <SummaryPanel
+            summary={
+              status === "FOCUSING"
+                ? "Session active. Monitoring for interruptions."
+                : data?.summary?.summary_text || "Session closed."
+            }
+          />
           <Timeline events={timelineEvents} />
         </div>
       )}

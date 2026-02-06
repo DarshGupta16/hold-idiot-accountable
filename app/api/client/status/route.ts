@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
 import { verifySession } from "@/lib/backend/auth";
-import { SessionStatus } from "@/lib/backend/types";
-import { config } from "../../../../lib/backend/config";
+import { SessionStatus, LogRecord } from "@/lib/backend/types";
+import { config } from "@/lib/backend/config";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +20,16 @@ export async function GET(req: NextRequest) {
 
   const pb = await getAuthenticatedPocketBase();
 
-  // 2. Fetch Core Data (Active Session & Heartbeat)
+  // 2. Fetch Core Data (Active Session, Heartbeat, Summary)
   // Parallelizing fetches for speed
-  const [activeSessionResult, heartbeatResult] = await Promise.allSettled([
-    pb
-      .collection("study_sessions")
-      .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`),
-    pb.collection("variables").getFirstListItem('key = "lastHeartbeatAt"'),
-  ]);
+  const [activeSessionResult, heartbeatResult, summaryResult] =
+    await Promise.allSettled([
+      pb
+        .collection("study_sessions")
+        .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`),
+      pb.collection("variables").getFirstListItem('key = "lastHeartbeatAt"'),
+      pb.collection("variables").getFirstListItem('key = "summary"'),
+    ]);
 
   const activeSession =
     activeSessionResult.status === "fulfilled"
@@ -37,37 +39,38 @@ export async function GET(req: NextRequest) {
     heartbeatResult.status === "fulfilled" ? heartbeatResult.value : null;
   const lastHeartbeat = lastHeartbeatRecord?.value;
 
-  // 3. Fetch Logs (Only if session is active)
-  let logs: any[] = [];
-  if (activeSession) {
-    try {
+  const summaryRecord =
+    summaryResult.status === "fulfilled" ? summaryResult.value : null;
+  const summary = summaryRecord?.value;
+
+  // ...
+
+  // 3. Fetch Logs
+  // If active, fetch logs for current session.
+  // If idle, fetch logs for the session referenced in the summary (to show context).
+  let logs: LogRecord[] = [];
+  try {
+    const sessionId = activeSession?.id || summary?.session_id;
+    if (sessionId) {
       logs = await pb.collection("logs").getFullList({
-        filter: `session = "${activeSession.id}"`,
-        sort: "-created",
+        filter: `session = "${sessionId}"`,
+        sort: "-created_at",
       });
-    } catch (e) {
-      console.error("Error fetching logs:", e);
     }
+  } catch (e) {
+    console.error("Error fetching logs:", e);
   }
 
   // 4. Lazy Watchdog (Server-Side Safety Net)
-  // Checks if we should log a missed heartbeat, but uses the Worker as primary.
-  // This acts as a backup or immediate check if the client polls before the worker runs.
   if (config.isProd && lastHeartbeat?.timestamp && activeSession) {
     const hbTime = new Date(lastHeartbeat.timestamp).getTime();
     const nowTime = Date.now();
     const diffMinutes = (nowTime - hbTime) / 1000 / 60;
 
     if (diffMinutes > 2) {
-      // Check for recent "missed_heartbeat" log efficiently
-      // We check the 'logs' array we already fetched since it contains the session history.
-      // If the list is huge, this might be slow, but for a session scope, it's usually fine.
-      // Optimization: We check the most recent log in memory first.
-
       const lastLog = logs.length > 0 ? logs[0] : null;
       const alreadyLogged = lastLog?.type === "missed_heartbeat";
 
-      // Only log if not already logged recently
       if (!alreadyLogged) {
         try {
           const newLog = await pb.collection("logs").create({
@@ -80,9 +83,7 @@ export async function GET(req: NextRequest) {
             },
             session: activeSession.id,
           });
-
-          // Add to local logs array so the UI sees it immediately without refetch
-          logs.unshift(newLog);
+          logs.unshift(newLog as unknown as LogRecord);
         } catch (e) {
           console.error("Failed to log missed heartbeat:", e);
         }
@@ -93,6 +94,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     activeSession,
     lastHeartbeat,
+    summary,
     logs,
     serverTime: new Date().toISOString(),
   });
