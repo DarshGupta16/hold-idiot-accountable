@@ -56,9 +56,13 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/worker.js ./worker.js
 COPY --from=builder /app/pb_migrations ./pb_migrations
 COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+
+RUN chmod +x ./entrypoint.sh
 
 # Expose the Next.js port
 EXPOSE 3000
 
-# Start supervisor to run both services
+# Start via entrypoint to handle setup
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
