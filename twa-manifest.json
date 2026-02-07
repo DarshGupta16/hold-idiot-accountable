@@ -35,7 +35,15 @@
   "isMetaQuest": false,
   "minSdkVersion": 21,
   "orientation": "portrait",
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "name": "hia-release-key",
+      "sha256CertFingerprints": [
+        "2E:52:24:93:DA:F2:06:8F:3E:41:01:DA:CD:50:FC:2D:91:17:ED:26:5C:AD:6E:09:32:F4:3C:8E:2B:57:76:CC"
+      ]
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": [],

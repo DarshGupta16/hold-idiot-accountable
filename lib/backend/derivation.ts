@@ -28,6 +28,8 @@ export async function processHeartbeat(
   const pb = await getAuthenticatedPocketBase();
   const serverNow = new Date().toISOString();
 
+  console.log("[Heartbeat] Processing heartbeat at", serverNow);
+
   // Update ephemeral state. We prefer server-time for the record's timestamp.
   try {
     await pb.collection<HeartbeatVariable>("variables").create(
@@ -41,12 +43,16 @@ export async function processHeartbeat(
       },
       { requestKey: null },
     );
-  } catch {
+    console.log("[Heartbeat] Created new lastHeartbeatAt record");
+  } catch (createError) {
+    console.log("[Heartbeat] Create failed, trying update:", createError);
     // Fallback: If creation fails (e.g. key exists), update the existing record.
     try {
       const existing = await pb
         .collection<HeartbeatVariable>("variables")
         .getFirstListItem('key="lastHeartbeatAt"');
+
+      console.log("[Heartbeat] Found existing record:", existing.id);
 
       await pb.collection<HeartbeatVariable>("variables").update(existing.id, {
         value: {
@@ -55,16 +61,24 @@ export async function processHeartbeat(
           machine: payload.machine_id,
         },
       });
-    } catch {
+      console.log("[Heartbeat] Updated existing record successfully");
+    } catch (updateError) {
+      console.error("[Heartbeat] Update also failed:", updateError);
       // Final attempt to create if it mysteriously disappeared (Race condition safety)
-      await pb.collection<HeartbeatVariable>("variables").create({
-        key: "lastHeartbeatAt",
-        value: {
-          timestamp: serverNow,
-          client_timestamp: payload.timestamp,
-          machine: payload.machine_id,
-        },
-      });
+      try {
+        await pb.collection<HeartbeatVariable>("variables").create({
+          key: "lastHeartbeatAt",
+          value: {
+            timestamp: serverNow,
+            client_timestamp: payload.timestamp,
+            machine: payload.machine_id,
+          },
+        });
+        console.log("[Heartbeat] Final create attempt succeeded");
+      } catch (finalError) {
+        console.error("[Heartbeat] All attempts failed:", finalError);
+        throw finalError; // Re-throw so API returns error
+      }
     }
   }
 }
