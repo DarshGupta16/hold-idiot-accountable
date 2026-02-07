@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { config } from "./config";
 import { formatDuration } from "@/lib/utils";
+import { Log } from "@/lib/backend/schema";
 
 const groq = new Groq({
   apiKey: config.groqApiKey,
@@ -12,7 +13,7 @@ export interface AIResult {
 }
 
 export async function generateSessionSummary(
-  logs: any[],
+  logs: Log[],
   sessionContext: {
     subject: string;
     plannedDuration: number;

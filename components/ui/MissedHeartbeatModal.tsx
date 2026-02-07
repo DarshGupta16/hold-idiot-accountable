@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, Check } from "lucide-react";
+import { Log } from "@/lib/backend/schema";
 
 interface MissedHeartbeatModalProps {
-  logs: any[];
+  logs: Log[];
   onAcknowledge: () => void; // Callback to refresh data
 }
 

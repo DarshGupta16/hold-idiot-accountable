@@ -4,19 +4,10 @@ import { Navigation } from "@/components/ui/Navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import useSWR from "swr";
 import { useMemo } from "react";
+import { StudySession } from "@/lib/backend/schema";
 
 // Fetcher
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-interface SessionRecord {
-  id: string;
-  created: string; // "YYYY-MM-DD HH:MM:SS.mmmZ"
-  started_at: string;
-  ended_at?: string;
-  subject: string;
-  status: "active" | "completed" | "aborted";
-  planned_duration_sec: number;
-}
 
 export default function LogsPage() {
   const { data, isLoading } = useSWR("/api/client/history", fetcher);
@@ -27,7 +18,7 @@ export default function LogsPage() {
 
     const groups: Record<string, any[]> = {};
 
-    data.items.forEach((session: SessionRecord) => {
+    data.items.forEach((session: StudySession) => {
       if (!session.started_at) return;
 
       const dateObj = new Date(session.started_at);

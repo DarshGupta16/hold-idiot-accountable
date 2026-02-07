@@ -1,7 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { config } from "@/lib/backend/config";
-import { MissedHeartbeatMetadata } from "@/lib/backend/schema";
+import {
+  MissedHeartbeatMetadata,
+  StudySession,
+  Log,
+  HeartbeatVariable,
+} from "@/lib/backend/schema";
 import PocketBase from "pocketbase";
 
 // Constants
@@ -31,13 +36,12 @@ async function checkHeartbeat() {
     }
 
     // 2. Get Last Heartbeat
-    let lastHeartbeat;
+    let lastHeartbeat: HeartbeatVariable["value"] | undefined;
     try {
-      lastHeartbeat = (
-        await pb
-          .collection("variables")
-          .getFirstListItem('key = "lastHeartbeatAt"')
-      ).value;
+      const record = await pb
+        .collection<HeartbeatVariable>("variables")
+        .getFirstListItem('key = "lastHeartbeatAt"');
+      lastHeartbeat = record.value;
     } catch {
       // No heartbeat recorded yet
       console.log(
@@ -61,10 +65,10 @@ async function checkHeartbeat() {
     // 3. Check threshold
     if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS) {
       // 4. Check for Active Session
-      let activeSessionId = null;
+      let activeSessionId: string | null = null;
       try {
         const session = await pb
-          .collection("study_sessions")
+          .collection<StudySession>("study_sessions")
           .getFirstListItem('status = "active"');
         activeSessionId = session.id;
         console.log(`[Worker] Active session found: ${activeSessionId}`);
@@ -85,7 +89,7 @@ async function checkHeartbeat() {
         gap_minutes: diffMinutes,
         acknowledged: false,
       };
-      await pb.collection("logs").create({
+      await pb.collection<Log>("logs").create({
         type: "missed_heartbeat",
         message: `MISSED HEARTBEAT: Last heard ${Math.floor(
           diffMinutes,

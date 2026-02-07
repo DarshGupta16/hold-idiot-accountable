@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
 import { verifySession } from "@/lib/backend/auth";
 import { generateSessionSummary } from "@/lib/backend/ai";
+import { StudySession, Log, SummaryVariable } from "@/lib/backend/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,11 @@ export async function POST(req: NextRequest) {
     // 2. Fetch Active or Most Recent Session
     // We want to summarize whatever is "current" or "just finished"
     // So usually we fetch the last created session.
-    const session = await pb.collection("study_sessions").getFirstListItem("", {
-      sort: "-created_at",
-    });
+    const session = await pb
+      .collection<StudySession>("study_sessions")
+      .getFirstListItem("", {
+        sort: "-created_at",
+      });
 
     if (!session) {
       return NextResponse.json(
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Fetch logs for that session
-    const logs = await pb.collection("logs").getFullList({
+    const logs = await pb.collection<Log>("logs").getFullList({
       filter: `session = "${session.id}"`,
       sort: "created_at",
     });
@@ -55,10 +58,10 @@ export async function POST(req: NextRequest) {
     // Upsert logic for variables
     try {
       const existing = await pb
-        .collection("variables")
+        .collection<SummaryVariable>("variables")
         .getFirstListItem('key="summary"');
 
-      await pb.collection("variables").update(existing.id, {
+      await pb.collection<SummaryVariable>("variables").update(existing.id, {
         value: {
           ...aiResult, // Spread structured output (summary_text, status_label)
           generated_at: serverNow,
@@ -66,7 +69,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch {
-      await pb.collection("variables").create({
+      await pb.collection<SummaryVariable>("variables").create({
         key: "summary",
         value: {
           ...aiResult,

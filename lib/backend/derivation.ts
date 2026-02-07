@@ -5,7 +5,6 @@ import {
   SessionStopSchema,
   BlocklistEventSchema,
   HeartbeatSchema,
-  SessionStatus,
   BlocklistEventType,
 } from "./types";
 import { z } from "zod";
@@ -15,6 +14,13 @@ import {
   getActiveSession,
 } from "./invariants";
 import { formatDuration } from "@/lib/utils";
+import {
+  StudySession,
+  Log,
+  SessionStatus,
+  SummaryVariable,
+  HeartbeatVariable,
+} from "@/lib/backend/schema";
 
 export async function processHeartbeat(
   payload: z.infer<typeof HeartbeatSchema>,
@@ -24,7 +30,7 @@ export async function processHeartbeat(
 
   // Update ephemeral state. We prefer server-time for the record's timestamp.
   try {
-    await pb.collection("variables").create(
+    await pb.collection<HeartbeatVariable>("variables").create(
       {
         key: "lastHeartbeatAt",
         value: {
@@ -39,10 +45,10 @@ export async function processHeartbeat(
     // Fallback: If creation fails (e.g. key exists), update the existing record.
     try {
       const existing = await pb
-        .collection("variables")
+        .collection<HeartbeatVariable>("variables")
         .getFirstListItem('key="lastHeartbeatAt"');
 
-      await pb.collection("variables").update(existing.id, {
+      await pb.collection<HeartbeatVariable>("variables").update(existing.id, {
         value: {
           timestamp: serverNow,
           client_timestamp: payload.timestamp,
@@ -51,7 +57,7 @@ export async function processHeartbeat(
       });
     } catch {
       // Final attempt to create if it mysteriously disappeared (Race condition safety)
-      await pb.collection("variables").create({
+      await pb.collection<HeartbeatVariable>("variables").create({
         key: "lastHeartbeatAt",
         value: {
           timestamp: serverNow,
@@ -70,14 +76,14 @@ export async function processSessionStart(
   const pb = await getAuthenticatedPocketBase();
   const serverNow = new Date().toISOString();
 
-  const session = await pb.collection("study_sessions").create({
+  const session = await pb.collection<StudySession>("study_sessions").create({
     started_at: serverNow,
     planned_duration_sec: payload.planned_duration_sec,
     subject: payload.subject,
-    status: SessionStatus.ACTIVE,
+    status: "active",
   });
 
-  await pb.collection("logs").create({
+  await pb.collection<Log>("logs").create({
     type: EventType.SESSION_START.toLowerCase(),
     message: `Session started: ${payload.subject} for ${formatDuration(payload.planned_duration_sec)}`,
     metadata: payload,
@@ -97,18 +103,16 @@ export async function processSessionStop(
   // Derivation: Session is completed if elapsed time >= planned duration (minus 60s tolerance).
   const isCompleted = elapsedSeconds >= session.planned_duration_sec - 60;
 
-  const newStatus = isCompleted
-    ? SessionStatus.COMPLETED
-    : SessionStatus.ABORTED;
+  const newStatus: SessionStatus = isCompleted ? "completed" : "aborted";
   const note = payload.reason ? `Client reason: ${payload.reason}` : undefined;
 
-  await pb.collection("study_sessions").update(session.id, {
+  await pb.collection<StudySession>("study_sessions").update(session.id, {
     ended_at: serverNow.toISOString(),
     status: newStatus,
     end_note: note,
   });
 
-  await pb.collection("logs").create({
+  await pb.collection<Log>("logs").create({
     type: "session_end",
     message: `Session ${newStatus}. Ran for ${formatDuration(Math.floor(elapsedSeconds))} (Planned: ${formatDuration(session.planned_duration_sec)})`,
     metadata: {
@@ -124,7 +128,7 @@ export async function processSessionStop(
     const { generateSessionSummary } = await import("./ai");
 
     // Fetch all logs for context
-    const logs = await pb.collection("logs").getFullList({
+    const logs = await pb.collection<Log>("logs").getFullList({
       filter: `session = "${session.id}"`,
       sort: "created_at",
     });
@@ -146,14 +150,14 @@ export async function processSessionStop(
 
     try {
       const existing = await pb
-        .collection("variables")
+        .collection<SummaryVariable>("variables")
         .getFirstListItem('key="summary"');
       await pb
-        .collection("variables")
+        .collection<SummaryVariable>("variables")
         .update(existing.id, { value: variablePayload });
     } catch {
       await pb
-        .collection("variables")
+        .collection<SummaryVariable>("variables")
         .create({ key: "summary", value: variablePayload });
     }
   } catch (e) {
@@ -171,7 +175,7 @@ export async function processBlocklistEvent(
   const logType =
     payload.type === BlocklistEventType.VIOLATION ? "breach" : "warn";
 
-  await pb.collection("logs").create({
+  await pb.collection<Log>("logs").create({
     type: logType,
     message: `${logType.toUpperCase()}: Detected ${payload.process_name || "process"} - ${payload.window_title || "unknown"}`,
     metadata: payload,
