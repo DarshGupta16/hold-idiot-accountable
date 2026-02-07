@@ -30,55 +30,36 @@ export async function processHeartbeat(
 
   console.log("[Heartbeat] Processing heartbeat at", serverNow);
 
-  // Update ephemeral state. We prefer server-time for the record's timestamp.
+  const heartbeatValue = {
+    timestamp: serverNow,
+    client_timestamp: payload.timestamp,
+    machine: payload.machine_id,
+  };
+
+  // Use proper upsert pattern: Try to find existing, then update or create
   try {
-    await pb.collection<HeartbeatVariable>("variables").create(
-      {
-        key: "lastHeartbeatAt",
-        value: {
-          timestamp: serverNow,
-          client_timestamp: payload.timestamp,
-          machine: payload.machine_id,
-        },
-      },
-      { requestKey: null },
-    );
-    console.log("[Heartbeat] Created new lastHeartbeatAt record");
-  } catch (createError) {
-    console.log("[Heartbeat] Create failed, trying update:", createError);
-    // Fallback: If creation fails (e.g. key exists), update the existing record.
+    const existing = await pb
+      .collection<HeartbeatVariable>("variables")
+      .getFirstListItem('key = "lastHeartbeatAt"');
+
+    console.log("[Heartbeat] Found existing record:", existing.id);
+
+    await pb.collection<HeartbeatVariable>("variables").update(existing.id, {
+      value: heartbeatValue,
+    });
+    console.log("[Heartbeat] Updated existing record successfully");
+  } catch {
+    // Record doesn't exist, create it
+    console.log("[Heartbeat] No existing record, creating new one");
     try {
-      const existing = await pb
-        .collection<HeartbeatVariable>("variables")
-        .getFirstListItem('key="lastHeartbeatAt"');
-
-      console.log("[Heartbeat] Found existing record:", existing.id);
-
-      await pb.collection<HeartbeatVariable>("variables").update(existing.id, {
-        value: {
-          timestamp: serverNow,
-          client_timestamp: payload.timestamp,
-          machine: payload.machine_id,
-        },
+      await pb.collection<HeartbeatVariable>("variables").create({
+        key: "lastHeartbeatAt",
+        value: heartbeatValue,
       });
-      console.log("[Heartbeat] Updated existing record successfully");
-    } catch (updateError) {
-      console.error("[Heartbeat] Update also failed:", updateError);
-      // Final attempt to create if it mysteriously disappeared (Race condition safety)
-      try {
-        await pb.collection<HeartbeatVariable>("variables").create({
-          key: "lastHeartbeatAt",
-          value: {
-            timestamp: serverNow,
-            client_timestamp: payload.timestamp,
-            machine: payload.machine_id,
-          },
-        });
-        console.log("[Heartbeat] Final create attempt succeeded");
-      } catch (finalError) {
-        console.error("[Heartbeat] All attempts failed:", finalError);
-        throw finalError; // Re-throw so API returns error
-      }
+      console.log("[Heartbeat] Created new record successfully");
+    } catch (createError) {
+      console.error("[Heartbeat] Failed to create record:", createError);
+      throw createError;
     }
   }
 }
