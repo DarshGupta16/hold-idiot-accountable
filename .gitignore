@@ -47,3 +47,14 @@ pb_data
 /scripts
 setup_test_state.ts
 debug_sessions.ts
+
+GEMINI.md
+
+# bubblewrap stuff
+_build_artifacts/
+*gradle*
+*apk*
+*aab*
+*keystore*
+manifest-checksum.txt
+store_icon.png
