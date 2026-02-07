@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
 import { verifySession } from "@/lib/backend/auth";
 import { SessionStatus, LogRecord } from "@/lib/backend/types";
+import { MissedHeartbeatMetadata } from "@/lib/backend/schema";
 import { config } from "@/lib/backend/config";
 
 export const dynamic = "force-dynamic";
@@ -69,25 +70,21 @@ export async function GET(req: NextRequest) {
     const diffMinutes = diffSeconds / 60;
 
     if (diffSeconds > 33) {
-      const lastLog = logs.length > 0 ? logs[0] : null;
-      const alreadyLogged = lastLog?.type === "missed_heartbeat";
-
-      if (!alreadyLogged) {
-        try {
-          const newLog = await pb.collection("logs").create({
-            type: "missed_heartbeat",
-            message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
-            metadata: {
-              last_seen: lastHeartbeat.timestamp,
-              gap_minutes: diffMinutes,
-              acknowledged: false,
-            },
-            session: activeSession.id,
-          });
-          logs.unshift(newLog as unknown as LogRecord);
-        } catch (e) {
-          console.error("Failed to log missed heartbeat:", e);
-        }
+      try {
+        const metadata: MissedHeartbeatMetadata = {
+          last_seen: lastHeartbeat.timestamp,
+          gap_minutes: diffMinutes,
+          acknowledged: false,
+        };
+        const newLog = await pb.collection("logs").create({
+          type: "missed_heartbeat",
+          message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
+          metadata,
+          session: activeSession.id,
+        });
+        logs.unshift(newLog as unknown as LogRecord);
+      } catch (e) {
+        console.error("Failed to log missed heartbeat:", e);
       }
     }
   }

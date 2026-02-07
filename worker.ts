@@ -1,11 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { config } from "@/lib/backend/config";
+import { MissedHeartbeatMetadata } from "@/lib/backend/schema";
 import PocketBase from "pocketbase";
 
 // Constants
 const HEARTBEAT_THRESHOLD_SECONDS = 33;
-const LOG_DEBOUNCE_MINUTES = 5;
 
 // Validation
 if (!config.adminEmail || !config.adminPassword) {
@@ -76,40 +76,24 @@ async function checkHeartbeat() {
         return;
       }
 
-      // 5. Check if recently logged to prevent spam
-      const recentLogs = await pb.collection("logs").getList(1, 1, {
-        sort: "-created_at",
-        filter: 'type = "missed_heartbeat"',
+      // 5. Log missed heartbeat immediately (No debouncing)
+      console.log(
+        `[Worker] MISSING HEARTBEAT detected! Gap: ${diffMinutes.toFixed(2)}m`,
+      );
+      const metadata: MissedHeartbeatMetadata = {
+        last_seen: lastHeartbeat.timestamp,
+        gap_minutes: diffMinutes,
+        acknowledged: false,
+      };
+      await pb.collection("logs").create({
+        type: "missed_heartbeat",
+        message: `MISSED HEARTBEAT: Last heard ${Math.floor(
+          diffMinutes,
+        )}m ago (Worker Detected).`,
+        metadata,
+        session: activeSessionId,
       });
-
-      const lastLog = recentLogs.items[0];
-      const recentlyLogged =
-        lastLog &&
-        nowTime - new Date(lastLog.created_at).getTime() <
-          LOG_DEBOUNCE_MINUTES * 60 * 1000;
-
-      if (recentlyLogged) {
-        console.log(
-          "[Worker] Already logged a missed heartbeat recently. Debouncing...",
-        );
-      } else {
-        console.log(
-          `[Worker] MISSING HEARTBEAT detected! Gap: ${diffMinutes.toFixed(2)}m`,
-        );
-        await pb.collection("logs").create({
-          type: "missed_heartbeat",
-          message: `MISSED HEARTBEAT: Last heard ${Math.floor(
-            diffMinutes,
-          )}m ago (Worker Detected).`,
-          metadata: {
-            last_seen: lastHeartbeat.timestamp,
-            gap_minutes: diffMinutes,
-            acknowledged: false,
-          },
-          session: activeSessionId,
-        });
-        console.log("[Worker] Missed heartbeat logged successfully.");
-      }
+      console.log("[Worker] Missed heartbeat logged successfully.");
     }
   } catch (e) {
     console.error("[Worker] Error:", e);
@@ -120,7 +104,7 @@ async function checkHeartbeat() {
 console.log("[Worker] Starting Heartbeat Monitor...");
 console.log(`[Worker] PocketBase URL: ${config.pocketbaseUrl}`);
 console.log(
-  `[Worker] Threshold: ${HEARTBEAT_THRESHOLD_SECONDS}s, Debounce: ${LOG_DEBOUNCE_MINUTES}m`,
+  `[Worker] Threshold: ${HEARTBEAT_THRESHOLD_SECONDS}s, Debounce: DISABLED`,
 );
 checkHeartbeat(); // Run immediately
 setInterval(checkHeartbeat, 30 * 1000); // Loop every 30s for tighter check

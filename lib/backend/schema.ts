@@ -83,6 +83,25 @@ export interface Log {
 }
 
 // ============================================================================
+// LOG METADATA TYPES
+// ============================================================================
+
+/**
+ * Standard metadata for missed_heartbeat log entries.
+ * IMPORTANT: This is the canonical format - do not deviate from it.
+ */
+export interface MissedHeartbeatMetadata {
+  /** ISO timestamp of the last received heartbeat */
+  last_seen: string;
+
+  /** Gap in minutes since last heartbeat */
+  gap_minutes: number;
+
+  /** Whether the user has acknowledged this missed heartbeat */
+  acknowledged: boolean;
+}
+
+// ============================================================================
 // VARIABLES COLLECTION (Key-Value Store)
 // ============================================================================
 
