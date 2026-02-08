@@ -60,6 +60,12 @@ COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
 RUN chmod +x ./entrypoint.sh
 
+# Change ownership of /app to node user
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
+
 # Expose the Next.js port
 EXPOSE 3000
 

@@ -32,7 +32,8 @@ export async function proxy(req: NextRequest) {
   try {
     // 3. Verify Signature
     // HIA_CLIENT_PASSWORD is used as the JWT secret
-    const secret = new TextEncoder().encode(appConfig.hiaClientPassword || "");
+    const secretKey = appConfig.hiaJwtSecret || appConfig.hiaClientPassword || "";
+    const secret = new TextEncoder().encode(secretKey);
     await jwtVerify(cookie.value, secret);
 
     return NextResponse.next();

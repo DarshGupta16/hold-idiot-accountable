@@ -4,6 +4,7 @@ interface AppConfig {
   adminPassword?: string;
   hiaClientPassword?: string;
   hiaHomelabKey?: string;
+  hiaJwtSecret?: string;
   groqApiKey?: string;
   isProd: boolean;
 }
@@ -27,6 +28,7 @@ export const config: AppConfig = {
   adminPassword: getEnv("POCKETBASE_ADMIN_PASSWORD"),
   hiaClientPassword: getEnv("HIA_CLIENT_PASSWORD"),
   hiaHomelabKey: getEnv("HIA_HOMELAB_KEY"),
+  hiaJwtSecret: getEnv("HIA_JWT_SECRET"),
   groqApiKey: getEnv("GROQ_API_KEY"),
   isProd: getEnv("PROD") === "true",
 };

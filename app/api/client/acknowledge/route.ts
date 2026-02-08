@@ -11,25 +11,16 @@ export async function POST(req: NextRequest) {
   const pb = await getAuthenticatedPocketBase();
 
   try {
-    // 1. Fetch all unacknowledged missed heartbeat logs
-    // We check for type 'missed_heartbeat' and acknowledged != true
-    // Note: PocketBase filters on JSON fields can be tricky.
-    // It's safer/simpler to fetch recent logs and filter in memory if the volume is low,
-    // OR use PB's filter syntax if supported for JSON.
-    // Given the "append-only" nature and potential volume, we should try a DB filter.
-    // PB syntax: `metadata.acknowledged != true` might not work directly depending on version.
-    // However, we can fetch all `missed_heartbeat` type logs and update them.
-
-    // For now, let's just fetch all unacknowledged ones.
-    // Since we don't have a direct index on metadata fields, we might have to fetch recent headers.
-    // But wait, "I am deleting all missed heartbeat logs from the database" - implies we can just handle new ones.
-
-    // Let's try to find records where type='missed_heartbeat'
-    const records = await pb.collection("logs").getFullList({
+    // 1. Fetch recent unacknowledged missed heartbeat logs
+    // Safety: Use getList instead of getFullList to prevent OOM on large datasets.
+    // We process the latest 100 records. If there are more, the user can acknowledge again.
+    const records = await pb.collection("logs").getList(1, 100, {
       filter: `type = "missed_heartbeat"`,
+      sort: "-created",
     });
 
-    const unacknowledged = records.filter(
+    // Filter in memory for safety if JSON filtering is version-dependent
+    const unacknowledged = records.items.filter(
       (r) => r.metadata?.acknowledged !== true,
     );
 

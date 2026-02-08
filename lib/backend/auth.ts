@@ -15,7 +15,8 @@ export async function verifySession(req: NextRequest): Promise<boolean> {
 
   try {
     // Use config for cleaner access
-    const secret = new TextEncoder().encode(config.hiaClientPassword || "");
+    const secretKey = config.hiaJwtSecret || config.hiaClientPassword || "";
+    const secret = new TextEncoder().encode(secretKey);
     await jwtVerify(cookie.value, secret);
     return true;
   } catch (err) {
