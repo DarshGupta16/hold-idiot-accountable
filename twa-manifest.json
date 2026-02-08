@@ -20,8 +20,8 @@
     "path": "./hia-release-key.keystore",
     "alias": "hia-key"
   },
-  "appVersionName": "1.0.1",
-  "appVersionCode": 3,
+  "appVersionName": "1.0.2",
+  "appVersionCode": 4,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "http://localhost:8080/manifest.json",
@@ -49,5 +49,5 @@
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": [],
-  "appVersion": "1.0.1"
+  "appVersion": "1.0.2"
 }
