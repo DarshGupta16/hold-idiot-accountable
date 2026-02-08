@@ -20,6 +20,8 @@ import {
   SessionStatus,
   SummaryVariable,
   HeartbeatVariable,
+  TimelineEvent,
+  TimelineEventType,
 } from "@/lib/backend/schema";
 
 export async function processHeartbeat(
@@ -101,12 +103,7 @@ export async function processSessionStop(
   const newStatus: SessionStatus = isCompleted ? "completed" : "aborted";
   const note = payload.reason ? `Client reason: ${payload.reason}` : undefined;
 
-  await pb.collection<StudySession>("study_sessions").update(session.id, {
-    ended_at: serverNow.toISOString(),
-    status: newStatus,
-    end_note: note,
-  });
-
+  // Create the session_end log first
   await pb.collection<Log>("logs").create({
     type: "session_end",
     message: `Session ${newStatus}. Ran for ${formatDuration(Math.floor(elapsedSeconds))} (Planned: ${formatDuration(session.planned_duration_sec)})`,
@@ -118,15 +115,36 @@ export async function processSessionStop(
     session: session.id,
   });
 
-  // Generate AI Summary immediately
+  // Build timeline from logs for this session
+  const logs = await pb.collection<Log>("logs").getFullList({
+    filter: `session = "${session.id}"`,
+    sort: "created_at",
+  });
+
+  const timeline: TimelineEvent[] = logs.map((log) => {
+    // Map Log Type to Timeline Type (same logic as frontend)
+    let type: TimelineEventType = "INFO";
+    if (log.type === "session_start") type = "START";
+    if (log.type === "session_end") type = "END";
+    if (log.type === "breach") type = "BREACH";
+    if (log.type === "warn") type = "WARNING";
+
+    const logDate = new Date(log.created_at.replace(" ", "T"));
+    return {
+      id: log.id,
+      time: logDate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      type,
+      description: log.message,
+    };
+  });
+
+  // Generate AI Summary
+  let summaryText: string | undefined;
   try {
     const { generateSessionSummary } = await import("./ai");
-
-    // Fetch all logs for context
-    const logs = await pb.collection<Log>("logs").getFullList({
-      filter: `session = "${session.id}"`,
-      sort: "created_at",
-    });
 
     const aiResult = await generateSessionSummary(logs, {
       subject: session.subject,
@@ -135,7 +153,9 @@ export async function processSessionStop(
       actualDuration: elapsedSeconds,
     });
 
-    // Upsert summary variable
+    summaryText = aiResult.summary_text;
+
+    // Also update summary variable for home page reflection display
     const serverNowStr = new Date().toISOString();
     const variablePayload = {
       ...aiResult,
@@ -158,6 +178,15 @@ export async function processSessionStop(
   } catch (e) {
     console.error("Failed to generate summary in backend:", e);
   }
+
+  // Update session with end time, status, timeline, and summary
+  await pb.collection<StudySession>("study_sessions").update(session.id, {
+    ended_at: serverNow.toISOString(),
+    status: newStatus,
+    end_note: note,
+    timeline,
+    summary: summaryText,
+  });
 }
 
 export async function processBlocklistEvent(

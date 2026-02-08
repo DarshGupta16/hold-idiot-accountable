@@ -6,19 +6,27 @@ interface StatusPanelProps {
   status: "FOCUSING" | "IDLE" | "BREACH";
   subject?: string;
   duration?: string;
+  progressPercent?: number;
+  startTime?: string;
+  endTime?: string;
+  isOvertime?: boolean;
 }
 
 export function StatusPanel({
   status,
   subject,
-  duration = "00:00:00",
+  duration = "00:00",
+  progressPercent = 100,
+  startTime,
+  endTime,
+  isOvertime = false,
 }: StatusPanelProps) {
   const isFocusing = status === "FOCUSING";
   const isBreach = status === "BREACH";
 
   return (
     <div className="flex flex-col items-center justify-center py-24 space-y-6 relative w-full h-[40vh]">
-      {/* Heartbeat Logic */}
+      {/* Heartbeat indicator */}
       <div className="absolute top-8 right-8 flex items-center gap-2">
         <div
           className={cn(
@@ -32,7 +40,10 @@ export function StatusPanel({
         <h1
           className={cn(
             "text-6xl sm:text-7xl font-bold tracking-wide font-[family-name:var(--font-montserrat)]",
-            isFocusing && "text-stone-900 dark:text-stone-50",
+            isFocusing && !isOvertime && "text-stone-900 dark:text-stone-50",
+            isFocusing &&
+              isOvertime &&
+              "text-amber-700/80 dark:text-amber-400/80",
             status === "IDLE" && "text-stone-400 dark:text-stone-600",
             isBreach && "text-red-800/80 dark:text-red-400/80",
           )}
@@ -46,9 +57,41 @@ export function StatusPanel({
         )}
       </div>
 
-      <div className="font-mono text-stone-400 text-lg tracking-widest">
+      {/* Timer display */}
+      <div
+        className={cn(
+          "font-mono text-lg tracking-widest",
+          isOvertime ? "text-amber-600 dark:text-amber-400" : "text-stone-400",
+        )}
+      >
         {duration}
       </div>
+
+      {/* Progress bar - only shown when focusing */}
+      {isFocusing && (
+        <div className="w-full max-w-xs px-6 space-y-2">
+          {/* Progress bar track */}
+          <div className="w-full h-1 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-[width] duration-1000 ease-linear",
+                isOvertime
+                  ? "bg-amber-500/60 dark:bg-amber-500/50"
+                  : "bg-stone-500 dark:bg-stone-400",
+              )}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Time metadata */}
+          {startTime && endTime && (
+            <div className="flex justify-between text-xs text-stone-400 font-mono tracking-wide">
+              <span>{startTime}</span>
+              <span>{endTime}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

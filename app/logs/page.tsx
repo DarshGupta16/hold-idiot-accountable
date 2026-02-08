@@ -1,9 +1,10 @@
 "use client";
 
 import { Navigation } from "@/components/ui/Navigation";
+import { SessionDetailsModal } from "@/components/ui/SessionDetailsModal";
 import { CheckCircle2, XCircle } from "lucide-react";
 import useSWR from "swr";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StudySession } from "@/lib/backend/schema";
 
 // Fetcher
@@ -11,12 +12,15 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function LogsPage() {
   const { data, isLoading } = useSWR("/api/client/history", fetcher);
+  const [selectedSession, setSelectedSession] = useState<StudySession | null>(
+    null,
+  );
 
   // Group by Date
   const groupedLogs = useMemo(() => {
     if (!data?.items) return {};
 
-    const groups: Record<string, any[]> = {};
+    const groups: Record<string, StudySession[]> = {};
 
     data.items.forEach((session: StudySession) => {
       if (!session.started_at) return;
@@ -40,43 +44,38 @@ export default function LogsPage() {
       }
 
       if (!groups[dateLabel]) groups[dateLabel] = [];
-
-      // Calculate Duration
-      let durationStr = "--";
-      if (session.ended_at) {
-        const start = new Date(session.started_at).getTime();
-        const end = new Date(session.ended_at).getTime();
-        const diffMin = Math.floor((end - start) / 1000 / 60);
-        const h = Math.floor(diffMin / 60);
-        const m = diffMin % 60;
-        durationStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
-      } else {
-        durationStr = "Active";
-      }
-
-      // Time Range
-      const startTime = dateObj.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const endTime = session.ended_at
-        ? new Date(session.ended_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "Now";
-
-      groups[dateLabel].push({
-        id: session.id,
-        timeRange: `${startTime} - ${endTime}`,
-        duration: durationStr,
-        subject: session.subject,
-        status: session.status.toUpperCase(), // COMPLETED / ABORTED / ACTIVE
-      });
+      groups[dateLabel].push(session);
     });
 
     return groups;
   }, [data]);
+
+  // Helper to format duration
+  const formatSessionDuration = (session: StudySession) => {
+    if (!session.ended_at) return "Active";
+
+    const start = new Date(session.started_at).getTime();
+    const end = new Date(session.ended_at).getTime();
+    const diffMin = Math.floor((end - start) / 1000 / 60);
+    const h = Math.floor(diffMin / 60);
+    const m = diffMin % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  // Helper to format time range
+  const formatTimeRange = (session: StudySession) => {
+    const startTime = new Date(session.started_at).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const endTime = session.ended_at
+      ? new Date(session.ended_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Now";
+    return `${startTime} - ${endTime}`;
+  };
 
   return (
     <main className="min-h-screen pb-24 bg-stone-50 dark:bg-stone-900">
@@ -97,45 +96,44 @@ export default function LogsPage() {
         )}
 
         <div className="space-y-8">
-          {Object.entries(groupedLogs).map(([date, logs]) => (
+          {Object.entries(groupedLogs).map(([date, sessions]) => (
             <div key={date}>
               <h2 className="text-sm font-semibold text-stone-400 mb-4 sticky top-0 bg-stone-50 dark:bg-stone-900 py-2 z-10 font-[family-name:var(--font-montserrat)]">
                 {date}
               </h2>
               <div className="space-y-px bg-stone-200 dark:bg-stone-800 border border-stone-200 dark:border-stone-800 rounded-sm overflow-hidden">
-                {logs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between p-4 bg-white dark:bg-stone-900/50 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                {sessions.map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => setSelectedSession(session)}
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-stone-900/50 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors text-left"
                   >
                     <div className="min-w-0 flex-1 pr-4">
                       <div className="flex items-baseline gap-2 mb-1">
                         <span className="font-mono text-xs text-stone-400">
-                          {log.timeRange}
+                          {formatTimeRange(session)}
                         </span>
                         <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500">
-                          {log.duration}
+                          {formatSessionDuration(session)}
                         </span>
                       </div>
                       <h3 className="text-sm font-medium text-stone-900 dark:text-stone-100 truncate font-[family-name:var(--font-montserrat)]">
-                        {log.subject}
+                        {session.subject}
                       </h3>
                     </div>
 
                     <div className="shrink-0">
-                      {log.status === "COMPLETED" && (
+                      {session.status === "completed" && (
                         <CheckCircle2 className="w-5 h-5 text-stone-300 dark:text-stone-600" />
                       )}
-                      {log.status === "ABORTED" && (
+                      {session.status === "aborted" && (
                         <XCircle className="w-5 h-5 text-stone-300 dark:text-stone-600" />
                       )}
-                      {/* Active or Breached? DB status is 'active', 'completed', 'aborted'. Breach is a log event type. 
-                          For History, we mostly care about completion status. */}
-                      {log.status === "ACTIVE" && (
+                      {session.status === "active" && (
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                       )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -146,6 +144,15 @@ export default function LogsPage() {
           )}
         </div>
       </div>
+
+      {/* Session Details Modal */}
+      {selectedSession && (
+        <SessionDetailsModal
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+        />
+      )}
+
       <Navigation />
     </main>
   );

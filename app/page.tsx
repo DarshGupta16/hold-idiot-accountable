@@ -18,14 +18,16 @@ export default function Home() {
     refreshInterval: 5000,
   });
 
-  // ... (existing code for dates/timers/status)
-
   // Client-side duration ticker
   const startedAt = data?.activeSession?.started_at;
-  const [now, setNow] = useState(0);
+  const plannedDuration = data?.activeSession?.planned_duration_sec || 0;
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     if (!startedAt) return;
+
+    // Initialize to current time when session starts
+    setNow(Date.now());
 
     const interval = setInterval(() => {
       setNow(Date.now());
@@ -34,22 +36,50 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [startedAt]);
 
-  const elapsed = useMemo(() => {
-    if (!startedAt) return "00:00:00";
+  // Countdown timer logic
+  const timerData = useMemo(() => {
+    if (!startedAt || !plannedDuration) {
+      return {
+        display: "00:00",
+        progressPercent: 100,
+        isOvertime: false,
+        startTime: "",
+        endTime: "",
+      };
+    }
 
-    const start = new Date(startedAt).getTime();
-    const diff = Math.max(0, Math.floor((now - start) / 1000));
+    const start = parsePocketBaseDate(startedAt).getTime();
+    const elapsedSeconds = Math.max(0, Math.floor((now - start) / 1000));
+    const remainingSeconds = Math.max(0, plannedDuration - elapsedSeconds);
+    const isOvertime = elapsedSeconds > plannedDuration;
+    const overtimeSeconds = isOvertime ? elapsedSeconds - plannedDuration : 0;
 
-    const h = Math.floor(diff / 3600)
+    // Progress: 100% at start, 0% when time is up
+    const progressPercent = Math.max(
+      0,
+      (remainingSeconds / plannedDuration) * 100,
+    );
+
+    // Format display: countdown or overtime
+    const displaySeconds = isOvertime ? overtimeSeconds : remainingSeconds;
+    const m = Math.floor(displaySeconds / 60)
       .toString()
       .padStart(2, "0");
-    const m = Math.floor((diff % 3600) / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (diff % 60).toString().padStart(2, "0");
+    const s = (displaySeconds % 60).toString().padStart(2, "0");
+    const display = isOvertime ? `+ ${m}:${s}` : `${m}:${s}`;
 
-    return `${h}:${m}:${s}`;
-  }, [now, startedAt]);
+    // Format start/end times
+    const startDate = new Date(start);
+    const endDate = new Date(start + plannedDuration * 1000);
+    const timeFormat: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    const startTime = startDate.toLocaleTimeString([], timeFormat);
+    const endTime = endDate.toLocaleTimeString([], timeFormat);
+
+    return { display, progressPercent, isOvertime, startTime, endTime };
+  }, [now, startedAt, plannedDuration]);
 
   // Derived State
   const status = useMemo(() => {
@@ -92,9 +122,13 @@ export default function Home() {
     <main className="min-h-screen pb-24 transition-colors duration-700">
       <MissedHeartbeatModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
-        status={status === "REFLECTION" ? "IDLE" : status} // StatusPanel doesn't need to know about Reflection
-        subject={data?.activeSession?.subject || data?.summary?.subject} // Show subject of last session if reflecting
-        duration={elapsed}
+        status={status === "REFLECTION" ? "IDLE" : status}
+        subject={data?.activeSession?.subject || data?.summary?.subject}
+        duration={timerData.display}
+        progressPercent={timerData.progressPercent}
+        startTime={timerData.startTime}
+        endTime={timerData.endTime}
+        isOvertime={timerData.isOvertime}
       />
 
       {(status === "FOCUSING" || status === "REFLECTION") && (
