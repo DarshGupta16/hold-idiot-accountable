@@ -58,3 +58,5 @@ _build_artifacts/
 *keystore*
 manifest-checksum.txt
 store_icon.png
+build_apk.bat
+_temp_bubblewrap_build/
