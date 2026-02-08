@@ -26,6 +26,9 @@ export async function proxy(req: NextRequest) {
   const cookie = req.cookies.get("hia_session");
 
   if (!cookie) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -38,8 +41,12 @@ export async function proxy(req: NextRequest) {
 
     return NextResponse.next();
   } catch (_err) {
-    // Invalid/Expired Token -> Redirect to Login
-    const response = NextResponse.redirect(new URL("/login", req.url));
+    // Invalid/Expired Token
+    const response =
+      pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : NextResponse.redirect(new URL("/login", req.url));
+
     response.cookies.delete("hia_session");
     return response;
   }

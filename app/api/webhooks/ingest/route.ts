@@ -8,13 +8,54 @@ import {
   processBlocklistEvent,
 } from "@/lib/backend/derivation";
 import { config } from "@/lib/backend/config";
+import crypto from "crypto";
+
+// Rate Limiter for Failed Webhook Auth
+// IP -> { count, expires }
+const failedAuthRateLimit = new Map<string, { count: number; expires: number }>();
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const MAX_FAILED_ATTEMPTS = 10;
 
 export async function POST(req: NextRequest) {
-  // 1. Authorization Check
+  // 1. Rate Limit Check (Failed Auth Only)
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor ? forwardedFor.split(",")[0] : "unknown";
+  const now = Date.now();
+  const limitRecord = failedAuthRateLimit.get(ip);
+
+  if (limitRecord) {
+    if (now > limitRecord.expires) {
+      failedAuthRateLimit.delete(ip);
+    } else if (limitRecord.count >= MAX_FAILED_ATTEMPTS) {
+      console.warn(`[Webhook] Rate limit exceeded for IP: ${ip}`);
+      return NextResponse.json({ error: "Too many failed attempts" }, { status: 429 });
+    }
+  }
+
+  // 2. Authorization Check (Timing Safe)
   const authKey = req.headers.get("x-hia-access-key");
-  if (authKey !== config.hiaHomelabKey) {
+  const correctKey = config.hiaHomelabKey || "";
+
+  // Hash both keys for safe comparison (ensures equal length)
+  const inputHash = crypto.createHash("sha256").update(authKey || "").digest();
+  const targetHash = crypto.createHash("sha256").update(correctKey).digest();
+
+  if (!crypto.timingSafeEqual(inputHash, targetHash)) {
+    // Record failed attempt
+    const current = failedAuthRateLimit.get(ip) || {
+      count: 0,
+      expires: now + RATE_LIMIT_WINDOW,
+    };
+    failedAuthRateLimit.set(ip, {
+      count: current.count + 1,
+      expires: current.expires,
+    });
+
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Clear failure record on success (optional, but good for legitimate IPs that typo'd)
+  if (limitRecord) failedAuthRateLimit.delete(ip);
 
   try {
     // 2. Body Parsing & Validation
