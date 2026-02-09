@@ -22,10 +22,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Session Check
+  // 2. Session Check (Allow status API if homelab key is present)
   const cookie = req.cookies.get("hia_session");
+  const hasHomelabKey = req.headers.has("x-hia-access-key");
 
-  if (!cookie) {
+  if (!cookie && !(pathname === "/api/client/status" && hasHomelabKey)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
