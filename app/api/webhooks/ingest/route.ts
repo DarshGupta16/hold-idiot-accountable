@@ -8,7 +8,7 @@ import {
   processBlocklistEvent,
 } from "@/lib/backend/derivation";
 import { config } from "@/lib/backend/config";
-import crypto from "crypto";
+import { verifyHomelabKey } from "@/lib/backend/auth";
 
 // Rate Limiter for Failed Webhook Auth
 // IP -> { count, expires }
@@ -32,15 +32,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2. Authorization Check (Timing Safe)
-  const authKey = req.headers.get("x-hia-access-key");
-  const correctKey = config.hiaHomelabKey || "";
+  // 2. Authorization Check (Centralized verifyHomelabKey)
+  const isAuthenticated = await verifyHomelabKey(req);
 
-  // Hash both keys for safe comparison (ensures equal length)
-  const inputHash = crypto.createHash("sha256").update(authKey || "").digest();
-  const targetHash = crypto.createHash("sha256").update(correctKey).digest();
-
-  if (!crypto.timingSafeEqual(inputHash, targetHash)) {
+  if (!isAuthenticated) {
     // Record failed attempt
     const current = failedAuthRateLimit.get(ip) || {
       count: 0,

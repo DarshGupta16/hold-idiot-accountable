@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
-import { verifySession } from "@/lib/backend/auth";
+import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
 import { SessionStatus, LogRecord } from "@/lib/backend/types";
 import { MissedHeartbeatMetadata } from "@/lib/backend/schema";
 import { config } from "@/lib/backend/config";
@@ -13,9 +13,11 @@ export const dynamic = "force-dynamic";
  * Includes a "Lazy Watchdog" check for missed heartbeats (optimized).
  */
 export async function GET(req: NextRequest) {
-  // 1. Auth Check
-  const isAuthenticated = await verifySession(req);
-  if (!isAuthenticated) {
+  // 1. Auth Check (Supports Session Cookie or Homelab Key)
+  const isUserAuthenticated = await verifySession(req);
+  const isHomelabAuthenticated = await verifyHomelabKey(req);
+
+  if (!isUserAuthenticated && !isHomelabAuthenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
