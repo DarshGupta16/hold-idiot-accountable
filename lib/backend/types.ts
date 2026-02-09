@@ -49,6 +49,7 @@ export const SessionStartSchema = z.object({
   timestamp: z.string().datetime(),
   subject: z.string().min(1),
   planned_duration_sec: z.number().positive(),
+  blocklist: z.array(z.string()).default([]),
 });
 
 export const SessionStopSchema = z.object({
@@ -61,8 +62,7 @@ export const BlocklistEventSchema = z.object({
   event_type: z.literal(EventType.BLOCKLIST_EVENT),
   timestamp: z.string().datetime(),
   type: z.nativeEnum(BlocklistEventType),
-  process_name: z.string().optional(),
-  window_title: z.string().optional(),
+  removed_sites: z.array(z.string()).default([]),
 });
 
 // Union of all possible incoming webhook events

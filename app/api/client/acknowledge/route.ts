@@ -11,15 +11,13 @@ export async function POST(req: NextRequest) {
   const pb = await getAuthenticatedPocketBase();
 
   try {
-    // 1. Fetch recent unacknowledged missed heartbeat logs
-    // Safety: Use getList instead of getFullList to prevent OOM on large datasets.
-    // We process the latest 100 records. If there are more, the user can acknowledge again.
+    // 1. Fetch recent unacknowledged logs (missed heartbeats, breaches, warnings)
     const records = await pb.collection("logs").getList(1, 100, {
-      filter: `type = "missed_heartbeat"`,
+      filter: `type = "missed_heartbeat" || type = "breach" || type = "warn"`,
       sort: "-created",
     });
 
-    // Filter in memory for safety if JSON filtering is version-dependent
+    // Filter in memory for safety
     const unacknowledged = records.items.filter(
       (r) => r.metadata?.acknowledged !== true,
     );

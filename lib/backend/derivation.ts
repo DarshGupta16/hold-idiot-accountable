@@ -80,6 +80,21 @@ export async function processSessionStart(
     status: "active",
   });
 
+  // Store the blocklist in variables
+  try {
+    const existing = await pb
+      .collection("variables")
+      .getFirstListItem('key = "blocklist"');
+    await pb.collection("variables").update(existing.id, {
+      value: payload.blocklist || [],
+    });
+  } catch {
+    await pb.collection("variables").create({
+      key: "blocklist",
+      value: payload.blocklist || [],
+    });
+  }
+
   await pb.collection<Log>("logs").create({
     type: EventType.SESSION_START.toLowerCase(),
     message: `Session started: ${payload.subject} for ${formatDuration(payload.planned_duration_sec)}`,
@@ -199,10 +214,19 @@ export async function processBlocklistEvent(
   const logType =
     payload.type === BlocklistEventType.VIOLATION ? "breach" : "warn";
 
+  const removedSites = payload.removed_sites || [];
+  const message =
+    removedSites.length > 0
+      ? `${logType.toUpperCase()}: Blocklist tampered. Removed: ${removedSites.join(", ")}`
+      : `${logType.toUpperCase()}: Blocklist event detected.`;
+
   await pb.collection<Log>("logs").create({
     type: logType,
-    message: `${logType.toUpperCase()}: Detected ${payload.process_name || "process"} - ${payload.window_title || "unknown"}`,
-    metadata: payload,
+    message,
+    metadata: {
+      ...payload,
+      acknowledged: false, // For frontend alerts
+    },
     session: activeSession ? activeSession.id : null,
   });
 }

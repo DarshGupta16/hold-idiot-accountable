@@ -27,16 +27,21 @@ export async function GET(req: NextRequest) {
 
   const pb = await getAuthenticatedPocketBase();
 
-  // 2. Fetch Core Data (Active Session, Heartbeat, Summary)
+  // 2. Fetch Core Data (Active Session, Heartbeat, Summary, Blocklist)
   // Parallelizing fetches for speed
-  const [activeSessionResult, heartbeatResult, summaryResult] =
-    await Promise.allSettled([
-      pb
-        .collection("study_sessions")
-        .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`),
-      pb.collection("variables").getFirstListItem('key = "lastHeartbeatAt"'),
-      pb.collection("variables").getFirstListItem('key = "summary"'),
-    ]);
+  const [
+    activeSessionResult,
+    heartbeatResult,
+    summaryResult,
+    blocklistResult,
+  ] = await Promise.allSettled([
+    pb
+      .collection("study_sessions")
+      .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`),
+    pb.collection("variables").getFirstListItem('key = "lastHeartbeatAt"'),
+    pb.collection("variables").getFirstListItem('key = "summary"'),
+    pb.collection("variables").getFirstListItem('key = "blocklist"'),
+  ]);
 
   const activeSession =
     activeSessionResult.status === "fulfilled"
@@ -49,6 +54,10 @@ export async function GET(req: NextRequest) {
   const summaryRecord =
     summaryResult.status === "fulfilled" ? summaryResult.value : null;
   const summary = summaryRecord?.value;
+
+  const blocklistRecord =
+    blocklistResult.status === "fulfilled" ? blocklistResult.value : null;
+  const blocklist = blocklistRecord?.value || [];
 
   // ...
 
@@ -99,6 +108,7 @@ export async function GET(req: NextRequest) {
     activeSession,
     lastHeartbeat,
     summary,
+    blocklist,
     logs,
     serverTime: new Date().toISOString(),
   });

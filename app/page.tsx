@@ -1,8 +1,10 @@
 "use client";
 
 import { MissedHeartbeatModal } from "@/components/ui/MissedHeartbeatModal";
+import { BlocklistTamperModal } from "@/components/ui/BlocklistTamperModal";
 import { StatusPanel } from "@/components/ui/StatusPanel";
 import { SummaryPanel } from "@/components/ui/SummaryPanel";
+import { BlocklistPanel } from "@/components/ui/BlocklistPanel";
 import { Timeline } from "@/components/ui/Timeline";
 import { Navigation } from "@/components/ui/Navigation";
 import useSWR from "swr";
@@ -121,6 +123,7 @@ export default function Home() {
   return (
     <main className="min-h-screen pb-24 transition-colors duration-700">
       <MissedHeartbeatModal logs={data?.logs} onAcknowledge={() => mutate()} />
+      <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
         status={status === "REFLECTION" ? "IDLE" : status}
         subject={data?.activeSession?.subject || data?.summary?.subject}
@@ -140,6 +143,7 @@ export default function Home() {
                 : data?.summary?.summary_text || "Session closed."
             }
           />
+          <BlocklistPanel sites={data?.blocklist} />
           <Timeline events={timelineEvents} />
         </div>
       )}

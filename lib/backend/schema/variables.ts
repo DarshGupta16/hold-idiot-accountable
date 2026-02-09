@@ -43,9 +43,13 @@ export interface SummaryValue {
   subject?: string;
 }
 
+/** Value structure for the "blocklist" variable */
+export type BlocklistValue = string[];
+
 // ============================================================================
 // CONVENIENCE TYPE ALIASES
 // ============================================================================
 
 export type HeartbeatVariable = Variable<HeartbeatValue>;
 export type SummaryVariable = Variable<SummaryValue>;
+export type BlocklistVariable = Variable<BlocklistValue>;
