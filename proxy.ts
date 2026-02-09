@@ -35,10 +35,12 @@ export async function proxy(req: NextRequest) {
 
   try {
     // 3. Verify Signature
-    // HIA_CLIENT_PASSWORD is used as the JWT secret
-    const secretKey = appConfig.hiaJwtSecret || appConfig.hiaClientPassword || "";
-    const secret = new TextEncoder().encode(secretKey);
-    await jwtVerify(cookie.value, secret);
+    // Only verify if we actually have a cookie (we might be here via homelab key)
+    if (cookie) {
+      const secretKey = appConfig.hiaJwtSecret || appConfig.hiaClientPassword || "";
+      const secret = new TextEncoder().encode(secretKey);
+      await jwtVerify(cookie.value, secret);
+    }
 
     return NextResponse.next();
   } catch (_err) {
