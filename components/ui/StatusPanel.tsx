@@ -40,10 +40,7 @@ export function StatusPanel({
         <h1
           className={cn(
             "text-6xl sm:text-7xl font-bold tracking-wide font-[family-name:var(--font-montserrat)]",
-            isFocusing && !isOvertime && "text-stone-900 dark:text-stone-50",
-            isFocusing &&
-              isOvertime &&
-              "text-amber-700/80 dark:text-amber-400/80",
+            isFocusing && "text-stone-900 dark:text-stone-50",
             status === "IDLE" && "text-stone-400 dark:text-stone-600",
             isBreach && "text-red-800/80 dark:text-red-400/80",
           )}
@@ -61,7 +58,7 @@ export function StatusPanel({
       <div
         className={cn(
           "font-mono text-lg tracking-widest",
-          isOvertime ? "text-amber-600 dark:text-amber-400" : "text-stone-400",
+          isOvertime ? "text-red-600 dark:text-red-400" : "text-stone-400",
         )}
       >
         {duration}
@@ -76,7 +73,7 @@ export function StatusPanel({
               className={cn(
                 "h-full rounded-full transition-[width] duration-1000 ease-linear",
                 isOvertime
-                  ? "bg-amber-500/60 dark:bg-amber-500/50"
+                  ? "bg-red-500/60 dark:bg-red-500/50"
                   : "bg-stone-500 dark:bg-stone-400",
               )}
               style={{ width: `${progressPercent}%` }}

@@ -85,21 +85,28 @@ export async function GET(req: NextRequest) {
     const diffMinutes = diffSeconds / 60;
 
     if (diffSeconds > 33) {
-      try {
-        const metadata: MissedHeartbeatMetadata = {
-          last_seen: lastHeartbeat.timestamp,
-          gap_minutes: diffMinutes,
-          acknowledged: false,
-        };
-        const newLog = await pb.collection("logs").create({
-          type: "missed_heartbeat",
-          message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
-          metadata,
-          session: activeSession.id,
-        });
-        logs.unshift(newLog as unknown as LogRecord);
-      } catch (e) {
-        console.error("Failed to log missed heartbeat:", e);
+      // Check if we already have an unacknowledged missed heartbeat log for this session
+      const existingMissed = logs.find(
+        (l) => l.type === "missed_heartbeat" && l.metadata?.acknowledged !== true
+      );
+
+      if (!existingMissed) {
+        try {
+          const metadata: MissedHeartbeatMetadata = {
+            last_seen: lastHeartbeat.timestamp,
+            gap_minutes: diffMinutes,
+            acknowledged: false,
+          };
+          const newLog = await pb.collection("logs").create({
+            type: "missed_heartbeat",
+            message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
+            metadata,
+            session: activeSession.id,
+          });
+          logs.unshift(newLog as unknown as LogRecord);
+        } catch (e) {
+          console.error("Failed to log missed heartbeat:", e);
+        }
       }
     }
   }

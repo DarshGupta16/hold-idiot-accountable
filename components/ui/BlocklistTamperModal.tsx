@@ -52,9 +52,9 @@ export function BlocklistTamperModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-stone-900 border border-amber-200 dark:border-amber-900 shadow-2xl rounded-lg max-w-md w-full p-6 space-y-6 animate-in zoom-in-95 duration-300">
-        <div className="flex items-center gap-4 text-amber-600 dark:text-amber-500">
-          <div className="p-3 bg-amber-100 dark:bg-amber-950/50 rounded-full">
+      <div className="bg-white dark:bg-stone-900 border border-red-200 dark:border-red-900 shadow-2xl rounded-lg max-w-md w-full p-6 space-y-6 animate-in zoom-in-95 duration-300">
+        <div className="flex items-center gap-4 text-red-600 dark:text-red-500">
+          <div className="p-3 bg-red-100 dark:bg-red-950/50 rounded-full">
             <ShieldAlert className="w-8 h-8" />
           </div>
           <h2 className="text-xl font-bold tracking-tight">
@@ -74,7 +74,7 @@ export function BlocklistTamperModal({
               </p>
               <ul className="space-y-1">
                 {removedSites.map((site, i) => (
-                  <li key={i} className="text-xs font-mono text-amber-700 dark:text-amber-400">
+                  <li key={i} className="text-xs font-mono text-red-700 dark:text-red-400">
                     • {site}
                   </li>
                 ))}
