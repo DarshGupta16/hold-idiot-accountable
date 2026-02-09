@@ -30,10 +30,13 @@ export async function verifySession(req: NextRequest): Promise<boolean> {
  * Uses timing-safe comparison to prevent side-channel attacks.
  */
 export async function verifyHomelabKey(req: NextRequest): Promise<boolean> {
-  const authKey = req.headers.get("x-hia-access-key");
-  const correctKey = config.hiaHomelabKey;
+  const authKey = req.headers.get("x-hia-access-key")?.trim();
+  const correctKey = config.hiaHomelabKey?.trim();
 
   if (!authKey || !correctKey) {
+    if (!correctKey) {
+      console.warn("[Auth] HIA_HOMELAB_KEY is not set in environment variables.");
+    }
     return false;
   }
 
@@ -42,8 +45,13 @@ export async function verifyHomelabKey(req: NextRequest): Promise<boolean> {
   const targetHash = crypto.createHash("sha256").update(correctKey).digest();
 
   try {
-    return crypto.timingSafeEqual(inputHash, targetHash);
+    const isValid = crypto.timingSafeEqual(inputHash, targetHash);
+    if (!isValid) {
+      console.warn("[Auth] Homelab key mismatch.");
+    }
+    return isValid;
   } catch (e) {
+    console.error("[Auth] Error during timingSafeEqual:", e);
     return false;
   }
 }

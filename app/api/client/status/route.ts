@@ -14,11 +14,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   // 1. Auth Check (Supports Session Cookie or Homelab Key)
-  const isUserAuthenticated = await verifySession(req);
   const isHomelabAuthenticated = await verifyHomelabKey(req);
+  const isUserAuthenticated = isHomelabAuthenticated ? false : await verifySession(req);
 
   if (!isUserAuthenticated && !isHomelabAuthenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (isHomelabAuthenticated) {
+    console.log("[Auth] Status route accessed via Homelab Key.");
   }
 
   const pb = await getAuthenticatedPocketBase();
