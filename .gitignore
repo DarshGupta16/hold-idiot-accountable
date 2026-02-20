@@ -41,7 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 cookies.txt
-pb_data
+convex/_generated/
+.convex/
 
 # scripts
 /scripts

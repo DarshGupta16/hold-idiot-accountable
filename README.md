@@ -2,7 +2,7 @@
 
 > **"Did I genuinely do what I said I would do, for as long as I said I would?"**
 
-HIA (Hold Idiot Accountable, don't ask about the name 😜) is a minimalist, trust-minimized accountability system I built for myself to enforce focus by eliminating any easy way to bypass my own restrictions.
+HIA (Hold Idiot Accountable) is a minimalist, trust-minimized accountability system I built for myself to enforce focus by eliminating any easy way to bypass my own restrictions.
 
 This specific repository contains the **Next.js mobile app** I've designed for my friend (the accountability partner) to keep tabs on my session status and any transgressions in real-time. HIA moves beyond local browser extensions, leveraging network-level domain blocking and passive monitoring to reflect the quiet truth of my productivity without judgment.
 
@@ -24,15 +24,15 @@ I block distractions at the **network level** using my Pi-hole directly via **Ta
 
 ## System Architecture
 
-The system is distributed across a Next.js web app, a PocketBase backend, and my homelab.
+The system is distributed across a Next.js web app, a Convex backend (local + cloud sync), and my homelab.
 
 ### 1. The Trigger (Focus Session)
 
-I start my sessions via a web app I host at `lock.in`.
+I start my sessions via a web app.
 
 - I set my **subject** and **duration**.
 - This makes a request to an **n8n webhook**, which SSHs into my homelab to execute my Pi-hole blocklist script.
-- A record of the session is created in my server's `study_sessions` collection.
+- A record of the session is created in my server's `studySessions` table.
 
 ### 2. The Enforcer (Homelab Script)
 
@@ -46,17 +46,17 @@ A script runs periodically (every 30s) on my homelab to ensure I'm staying hones
 
 I run a standalone `worker.ts` process alongside the web server:
 
-- It monitors the **Heartbeat** timestamp in PocketBase.
+- It monitors the **Heartbeat** timestamp in Convex.
 - If it misses even a single heartbeat (detected after 33 seconds) while a session is active, it logs a `MISSED_HEARTBEAT` event.
-- This ensures I can't just turn off my homelab or disconnect from the network to bypass the blocks.
+- It also manages **Local-Cloud Sync**: Every 5 minutes, it reconciles the local Convex backend with a persistent Convex Cloud backup.
 
 ---
 
 ## Tech Stack
 
 - **Frontend**: Next.js (App Router) with a "Calm" aesthetic (**Tailwind CSS**).
-- **Backend**: PocketBase (embedded) for my append-only audit logs and session state.
-- **Worker**: Standalone TypeScript process for heartbeat monitoring.
+- **Backend**: Convex (Self-hosted local + Cloud backup) for append-only audit logs and session state.
+- **Worker**: Standalone TypeScript process for heartbeat monitoring and sync reconciliation.
 - **Infrastructure**: n8n (automation), Pi-hole (DNS blocking), Tailscale (network tunneling), Docker (deployment).
 
 ---
@@ -73,10 +73,10 @@ I've built HIA around a few core [design principles](design_principles.md) and a
 
 ## Project Structure
 
-- `/app`: My Next.js frontend and API routes.
-- `/lib/backend`: Core logic for event derivation and PocketBase integration.
-- `worker.ts`: My heartbeat monitoring watchdog.
-- `project_overview.md`: The original vision and goal breakdown.
+- `/app`: Next.js frontend and API routes.
+- `/convex`: Convex schema and server functions.
+- `/lib/backend`: Core logic for event derivation and Convex integration.
+- `worker.ts`: Heartbeat monitoring watchdog and sync manager.
 
 ---
 
@@ -85,5 +85,6 @@ I've built HIA around a few core [design principles](design_principles.md) and a
 1. **Start**: I set my duration → n8n triggers my Pi-hole blocklist → My server starts the session.
 2. **Monitor**: My homelab script pings the server and checks my blocklist every 30s.
 3. **Validate**: The HIA Worker checks for those pings. If they stop, it logs a breach.
-4. **End**: My session expires → n8n removes the blocks → My server archives the session.
-5. **Reflect**: The AI generates a factual summary of the logs for me to review afterward.
+4. **Sync**: The Worker periodically ensures local data is backed up to Convex Cloud.
+5. **End**: My session expires → n8n removes the blocks → My server archives the session.
+6. **Reflect**: The AI generates a factual summary of the logs for me to review afterward.

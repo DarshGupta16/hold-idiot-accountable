@@ -15,7 +15,7 @@ The backend is not a convenience layer. It is a **truth-preserving ledger**.
 - Client and homelab inputs are assumed to be modifiable and potentially dishonest.
 
 ### 2. Append-Only History
-- Historical records are **never mutated or deleted**.
+- Historical records are **never mutated or deleted** (except for full reconciliation overwrites from local to cloud).
 - Corrections are expressed as *new logs*, never edits.
 - Auditability > cleanliness.
 
@@ -24,7 +24,7 @@ The backend is not a convenience layer. It is a **truth-preserving ledger**.
 - **Sessions** describe bounded periods of work.
 - **Variables** describe current derived state.
 
-No collection should attempt to do more than its role.
+No table should attempt to do more than its role.
 
 ### 4. Calm, Low-Noise Output
 - Backend supports UI restraint by:
@@ -42,35 +42,37 @@ No collection should attempt to do more than its role.
 ## Runtime Architecture
 
 - **Framework:** Next.js (App Router)
-- **Database:** PocketBase (embedded, not publicly exposed)
-- **Deployment:** Single Docker container (Koyeb free tier)
+- **Database:** Convex OSS (Self-hosted local instance + Cloud backup)
+- **Deployment:** Single Docker container (Render.com)
+- **Sync:** Local-first with fire-and-forget cloud replication and periodic reconciliation.
 
 ### External Actors
 1. **Homelab**
    - Sends webhook events
    - Authenticated via fixed access key (env var)
 
-2. **Client (girlfriend)**
+2. **Client (accountability partner)**
    - Authenticated via session cookie
    - Read-only access to data
    - May trigger logging of derived events (e.g., missed heartbeat)
 
 ---
 
-## PocketBase Schema
+## Convex Schema
 
-### `study_sessions`
+### `studySessions`
 > One record per study session. Source of truth for session-level facts.
 
 **Fields**
-- `started_at` — datetime (server-set)
-- `ended_at` — datetime (nullable, server-set)
+- `started_at` — string (ISO datetime)
+- `ended_at` — string (nullable ISO datetime)
 - `planned_duration_sec` — number
-- `subject` — text
-- `status` — select: `active | completed | aborted`
-- `end_note` — text (optional, user-written description)
-- `created_at` — auto
-- `updated_at` — auto
+- `subject` — string
+- `status` — union: `active | completed | aborted`
+- `end_note` — string (optional)
+- `timeline` — array of objects (JSON events)
+- `summary` — string (AI summary)
+- `_creationTime` — auto (numeric)
 
 **Invariants**
 - Only one `active` session at a time
@@ -83,17 +85,17 @@ No collection should attempt to do more than its role.
 > Append-only audit log of events and derived judgments.
 
 **Fields**
-- `type` — select:
+- `type` — union:
   - `session_start`
   - `session_end`
   - `blocklist_change`
   - `warn`
   - `breach`
   - `missed_heartbeat`
-- `message` — text
-- `metadata` — json (optional)
-- `session` — relation → study_sessions (nullable)
-- `created_at` — auto
+- `message` — string
+- `metadata` — any (optional)
+- `session` — ID → studySessions (optional)
+- `_creationTime` — auto (numeric)
 
 **Rules**
 - No updates or deletes
@@ -106,13 +108,14 @@ No collection should attempt to do more than its role.
 > Singleton-style derived state and system memory.
 
 **Fields**
-- `key` — text (unique)
-- `value` — json
-- `updated_at` — auto
+- `key` — string (unique index)
+- `value` — any
+- `_creationTime` — auto (numeric)
 
 **Expected Keys**
-- `lastHeartbeatAt` — ISO timestamp
+- `lastHeartbeatAt` — Heartbeat object
 - `summary` — AI-generated behavioral summary
+- `blocklist` — Current active blocklist
 
 **Rules**
 - Not historical
@@ -128,7 +131,7 @@ No collection should attempt to do more than its role.
 - Prefer explicit enums over freeform strings
 
 ### Heartbeats
-- Update `lastHeartbeatAt`
+- Update `lastHeartbeatAt` variable
 - Never logged
 - Absence is meaningful
 
@@ -140,11 +143,20 @@ No collection should attempt to do more than its role.
 
 ## Access Control Model
 
-- **Server:** Full access
-- **Client:** Read-only access to all collections
-- **Monitored user:** No direct access to PocketBase
+- **Server:** Full access via admin key
+- **Client:** Read-only access to all tables via API
+- **Monitored user:** No direct access to database
 
-All write operations flow through server routes only.
+All write operations flow through server routes and derivation functions only.
+
+---
+
+## Sync & Resilience
+
+- **Local-First:** All critical operations happen on the local Convex instance.
+- **Fire-and-Forget:** Every write is asynchronously replicated to Convex Cloud.
+- **Reconciliation:** A background worker ensures local and cloud remain in sync via hashing.
+- **Cold Start:** If the local DB is empty, it pulls the entire state from the cloud.
 
 ---
 
@@ -162,4 +174,3 @@ All write operations flow through server routes only.
 > If a design choice makes cheating easier, reject it.
 > If a design choice makes the system quieter but less truthful, reject it.
 > Prefer boring correctness over cleverness.
-
