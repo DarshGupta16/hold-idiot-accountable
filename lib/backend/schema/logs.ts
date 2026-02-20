@@ -24,6 +24,9 @@ export interface Log {
   /** Convex document ID */
   _id: string;
 
+  /** API-mapped ID for frontend (same as _id) */
+  id?: string;
+
   /** Type of log event */
   type: LogType;
 
@@ -38,6 +41,9 @@ export interface Log {
 
   /** Auto-generated on create (numeric millisecond timestamp) */
   _creationTime: number;
+
+  /** API-mapped ISO timestamp for frontend */
+  created_at?: string;
 }
 
 // ============================================================================

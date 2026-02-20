@@ -12,6 +12,9 @@ export interface Variable<T = any> {
   /** Convex document ID */
   _id: string;
 
+  /** API-mapped ID for frontend (same as _id) */
+  id?: string;
+
   /** Unique key identifier */
   key: string;
 
@@ -20,6 +23,9 @@ export interface Variable<T = any> {
 
   /** Auto-generated on create (numeric millisecond timestamp) */
   _creationTime: number;
+
+  /** API-mapped ISO timestamp for frontend */
+  created_at?: string;
 }
 
 // ============================================================================
