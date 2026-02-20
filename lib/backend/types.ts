@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Re-export PocketBase schema types from centralized schema file
+// Re-export Convex schema types from centralized schema file
 export type {
   StudySession,
   Log,

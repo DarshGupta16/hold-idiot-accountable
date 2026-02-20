@@ -1,8 +1,7 @@
 /**
  * Logs Schema Types
  *
- * Types for the PocketBase `logs` collection.
- * @see pb_migrations/1769877328_created_logs.js
+ * Types for the Convex `logs` table.
  */
 
 // ============================================================================
@@ -22,8 +21,8 @@ export type LogType =
 // ============================================================================
 
 export interface Log {
-  /** Auto-generated 15-char ID */
-  id: string;
+  /** Convex document ID */
+  _id: string;
 
   /** Type of log event */
   type: LogType;
@@ -32,13 +31,13 @@ export interface Log {
   message: string;
 
   /** Optional JSON metadata */
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, any>;
 
-  /** Relation to study_sessions collection (optional) */
+  /** Relation to studySessions table (optional) */
   session?: string;
 
-  /** Auto-generated on create (ISO date string) */
-  created_at: string;
+  /** Auto-generated on create (numeric millisecond timestamp) */
+  _creationTime: number;
 }
 
 // ============================================================================
