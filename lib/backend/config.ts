@@ -1,7 +1,8 @@
 interface AppConfig {
-  pocketbaseUrl: string;
-  adminEmail: string;
-  adminPassword?: string;
+  convexUrl: string;
+  convexAdminKey: string;
+  convexCloudUrl: string;
+  convexCloudDeployKey: string;
   hiaClientPassword?: string;
   hiaHomelabKey?: string;
   hiaJwtSecret?: string;
@@ -23,9 +24,10 @@ const getEnv = (key: string, required = false): string => {
 };
 
 export const config: AppConfig = {
-  pocketbaseUrl: getEnv("POCKETBASE_URL") || "http://127.0.0.1:8090",
-  adminEmail: getEnv("POCKETBASE_ADMIN_EMAIL"),
-  adminPassword: getEnv("POCKETBASE_ADMIN_PASSWORD"),
+  convexUrl: getEnv("CONVEX_URL") || "http://127.0.0.1:3210",
+  convexAdminKey: getEnv("CONVEX_ADMIN_KEY"),
+  convexCloudUrl: getEnv("CONVEX_CLOUD_URL"),
+  convexCloudDeployKey: getEnv("CONVEX_CLOUD_DEPLOY_KEY"),
   hiaClientPassword: getEnv("HIA_CLIENT_PASSWORD"),
   hiaHomelabKey: getEnv("HIA_HOMELAB_KEY"),
   hiaJwtSecret: getEnv("HIA_JWT_SECRET"),
@@ -35,7 +37,7 @@ export const config: AppConfig = {
 
 // Validate critical server-side secrets if running on server
 if (typeof window === "undefined") {
-  if (!config.adminEmail) {
-    console.warn("WARNING: POCKETBASE_ADMIN_EMAIL is not set.");
+  if (!config.convexAdminKey) {
+    console.warn("WARNING: CONVEX_ADMIN_KEY is not set.");
   }
 }
