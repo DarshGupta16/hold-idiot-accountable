@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
+import { getLocalClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
 import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
-import { SessionStatus, LogRecord } from "@/lib/backend/types";
-import { MissedHeartbeatMetadata } from "@/lib/backend/schema";
 import { config } from "@/lib/backend/config";
+import { replicateToCloud } from "@/lib/backend/sync";
 
 export const dynamic = "force-dynamic";
 
 /**
+ * Helper to map Convex document to existing frontend shape
+ */
+function mapConvexDoc(doc: any) {
+  if (!doc) return null;
+  const { _id, _creationTime, ...rest } = doc;
+  return {
+    ...rest,
+    id: _id,
+    created_at: new Date(_creationTime).toISOString(),
+  };
+}
+
+/**
  * GET /api/client/status
  * Returns current session status, last heartbeat, and recent logs.
- * Includes a "Lazy Watchdog" check for missed heartbeats (optimized).
  */
 export async function GET(req: NextRequest) {
-  // 1. Auth Check (Supports Session Cookie or Homelab Key)
+  // 1. Auth Check
   const isHomelabAuthenticated = await verifyHomelabKey(req);
   const isUserAuthenticated = isHomelabAuthenticated ? false : await verifySession(req);
 
@@ -21,63 +33,35 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (isHomelabAuthenticated) {
-    console.log("[Auth] Status route accessed via Homelab Key.");
-  }
+  const convex = getLocalClient();
 
-  const pb = await getAuthenticatedPocketBase();
-
-  // 2. Fetch Core Data (Active Session, Heartbeat, Summary, Blocklist)
-  // Parallelizing fetches for speed
+  // 2. Fetch Core Data
   const [
-    activeSessionResult,
-    heartbeatResult,
-    summaryResult,
-    blocklistResult,
-  ] = await Promise.allSettled([
-    pb
-      .collection("study_sessions")
-      .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`),
-    pb.collection("variables").getFirstListItem('key = "lastHeartbeatAt"'),
-    pb.collection("variables").getFirstListItem('key = "summary"'),
-    pb.collection("variables").getFirstListItem('key = "blocklist"'),
+    activeSessionRaw,
+    heartbeatVar,
+    summaryVar,
+    blocklistVar,
+  ] = await Promise.all([
+    convex.query(api.studySessions.getActive),
+    convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
+    convex.query(api.variables.getByKey, { key: "summary" }),
+    convex.query(api.variables.getByKey, { key: "blocklist" }),
   ]);
 
-  const activeSession =
-    activeSessionResult.status === "fulfilled"
-      ? activeSessionResult.value
-      : null;
-  const lastHeartbeatRecord =
-    heartbeatResult.status === "fulfilled" ? heartbeatResult.value : null;
-  const lastHeartbeat = lastHeartbeatRecord?.value;
-
-  const summaryRecord =
-    summaryResult.status === "fulfilled" ? summaryResult.value : null;
-  const summary = summaryRecord?.value;
-
-  const blocklistRecord =
-    blocklistResult.status === "fulfilled" ? blocklistResult.value : null;
-  const blocklist = blocklistRecord?.value || [];
-
-  // ...
+  const activeSession = mapConvexDoc(activeSessionRaw);
+  const lastHeartbeat = heartbeatVar?.value;
+  const summary = summaryVar?.value;
+  const blocklist = blocklistVar?.value || [];
 
   // 3. Fetch Logs
-  // If active, fetch logs for current session.
-  // If idle, fetch logs for the session referenced in the summary (to show context).
-  let logs: LogRecord[] = [];
-  try {
-    const sessionId = activeSession?.id || summary?.session_id;
-    if (sessionId) {
-      logs = await pb.collection("logs").getFullList({
-        filter: `session = "${sessionId}"`,
-        sort: "-created_at",
-      });
-    }
-  } catch (e) {
-    console.error("Error fetching logs:", e);
+  let logs: any[] = [];
+  const sessionId = activeSession?.id || summary?.session_id;
+  if (sessionId) {
+    const rawLogs = await convex.query(api.logs.getBySession, { sessionId });
+    logs = rawLogs.map(mapConvexDoc);
   }
 
-  // 4. Lazy Watchdog (Server-Side Safety Net)
+  // 4. Lazy Watchdog
   if (config.isProd && lastHeartbeat?.timestamp && activeSession) {
     const hbTime = new Date(lastHeartbeat.timestamp).getTime();
     const nowTime = Date.now();
@@ -85,25 +69,29 @@ export async function GET(req: NextRequest) {
     const diffMinutes = diffSeconds / 60;
 
     if (diffSeconds > 33) {
-      // Check if we already have an unacknowledged missed heartbeat log for this session
       const existingMissed = logs.find(
         (l) => l.type === "missed_heartbeat" && l.metadata?.acknowledged !== true
       );
 
       if (!existingMissed) {
         try {
-          const metadata: MissedHeartbeatMetadata = {
+          const metadata = {
             last_seen: lastHeartbeat.timestamp,
             gap_minutes: diffMinutes,
             acknowledged: false,
           };
-          const newLog = await pb.collection("logs").create({
-            type: "missed_heartbeat",
+          const logData = {
+            type: "missed_heartbeat" as const,
             message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
             metadata,
             session: activeSession.id,
-          });
-          logs.unshift(newLog as unknown as LogRecord);
+          };
+          const newLogRaw = await convex.mutation(api.logs.create, logData);
+          await replicateToCloud("logs", "create", { ...logData, session: undefined });
+          
+          // Re-fetch or manually add
+          const newLog = mapConvexDoc({ ...logData, _id: newLogRaw, _creationTime: Date.now() });
+          logs.unshift(newLog);
         } catch (e) {
           console.error("Failed to log missed heartbeat:", e);
         }
