@@ -7,7 +7,6 @@ import {
   processSessionStop,
   processBlocklistEvent,
 } from "@/lib/backend/derivation";
-import { config } from "@/lib/backend/config";
 import { verifyHomelabKey } from "@/lib/backend/auth";
 
 // Rate Limiter for Failed Webhook Auth

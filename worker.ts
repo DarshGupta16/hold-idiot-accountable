@@ -27,7 +27,7 @@ const pb = new PocketBase(config.pocketbaseUrl);
 async function checkHeartbeat() {
   try {
     // 1. Authenticate if needed
-    if (!pb.authStore.isValid) {
+    if (!pb.authStore.isValid || pb.authStore.model === null) {
       console.log("[Worker] Authenticating with PocketBase...");
       await pb
         .collection("_superusers")
@@ -40,27 +40,29 @@ async function checkHeartbeat() {
     try {
       const record = await pb
         .collection<HeartbeatVariable>("variables")
-        .getFirstListItem('key = "lastHeartbeatAt"');
+        .getFirstListItem('key = "lastHeartbeatAt"', {
+          sort: "-updated_at", // Get the most recent one in case of duplicates
+        });
       lastHeartbeat = record.value;
     } catch {
-      // No heartbeat recorded yet
-      console.log(
-        "[Worker] No heartbeat record found. Waiting for first heartbeat...",
-      );
+      console.log("[Worker] No heartbeat record found. Standby...");
       return;
     }
 
     if (!lastHeartbeat?.timestamp) {
-      console.log("[Worker] Heartbeat record exists but has no timestamp.");
+      console.warn("[Worker] Heartbeat record found but lacks timestamp.");
       return;
     }
 
-    const hbTime = new Date(lastHeartbeat.timestamp).getTime();
+    const hbTime = new Date(lastHeartbeat.timestamp.replace(" ", "T")).getTime();
     const nowTime = Date.now();
-    const diffMinutes = (nowTime - hbTime) / 1000 / 60;
-    const diffSeconds = (nowTime - hbTime) / 1000;
+    const diffSeconds = Math.floor((nowTime - hbTime) / 1000);
+    const diffMinutes = diffSeconds / 60;
 
-    console.log(`[Worker] Last heartbeat: ${diffSeconds.toFixed(1)}s ago`);
+    // Only log every 30s check if it's getting close to threshold or missing
+    if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS / 2) {
+      console.log(`[Worker] Heartbeat status: ${diffSeconds}s ago (Threshold: ${HEARTBEAT_THRESHOLD_SECONDS}s)`);
+    }
 
     // 3. Check threshold
     if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS) {
@@ -71,36 +73,32 @@ async function checkHeartbeat() {
           .collection<StudySession>("study_sessions")
           .getFirstListItem('status = "active"');
         activeSessionId = session.id;
-        console.log(`[Worker] Active session found: ${activeSessionId}`);
       } catch {
         // No active session -> No need to alert for missed heartbeats.
-        console.log(
-          "[Worker] No active session. Skipping missed heartbeat check.",
-        );
         return;
       }
 
-      // 5. Log missed heartbeat immediately (No debouncing)
-      console.log(
-        `[Worker] MISSING HEARTBEAT detected! Gap: ${diffMinutes.toFixed(2)}m`,
+      // 5. Log missed heartbeat immediately
+      console.error(
+        `[Worker] MISSING HEARTBEAT detected in session ${activeSessionId}! Gap: ${diffMinutes.toFixed(2)}m`,
       );
+      
       const metadata: MissedHeartbeatMetadata = {
         last_seen: lastHeartbeat.timestamp,
         gap_minutes: diffMinutes,
         acknowledged: false,
       };
+
       await pb.collection<Log>("logs").create({
         type: "missed_heartbeat",
-        message: `MISSED HEARTBEAT: Last heard ${Math.floor(
-          diffMinutes,
-        )}m ago (Worker Detected).`,
+        message: `ALERT: Missed heartbeat. Last contact: ${Math.floor(diffSeconds)}s ago.`,
         metadata,
         session: activeSessionId,
       });
-      console.log("[Worker] Missed heartbeat logged successfully.");
+      console.log("[Worker] Missed heartbeat log created.");
     }
-  } catch (e) {
-    console.error("[Worker] Error:", e);
+  } catch (e: unknown) {
+    console.error("[Worker] Loop Error:", e);
   }
 }
 

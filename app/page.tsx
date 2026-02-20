@@ -23,13 +23,10 @@ export default function Home() {
   // Client-side duration ticker
   const startedAt = data?.activeSession?.started_at;
   const plannedDuration = data?.activeSession?.planned_duration_sec || 0;
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!startedAt) return;
-
-    // Initialize to current time when session starts
-    setNow(Date.now());
 
     const interval = setInterval(() => {
       setNow(Date.now());

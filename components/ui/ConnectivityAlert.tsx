@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 
 export function ConnectivityAlert() {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => 
+    typeof window !== "undefined" ? navigator.onLine : true
+  );
 
   useEffect(() => {
-    // Initial check
-    if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-    }
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 

@@ -7,7 +7,6 @@ import {
   Sun,
   Moon,
   Laptop,
-  Bell,
   Shield,
   MoveVertical,
   LayoutGrid,
@@ -19,12 +18,11 @@ import * as React from "react";
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme();
   const { density, setDensity } = usePreferences();
-  const [isOnline, setIsOnline] = React.useState(true);
+  const [isOnline, setIsOnline] = React.useState(() =>
+    typeof window !== "undefined" ? navigator.onLine : true
+  );
 
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-    }
     const setTrue = () => setIsOnline(true);
     const setFalse = () => setIsOnline(false);
     window.addEventListener("online", setTrue);
@@ -169,7 +167,7 @@ function ThemeButton({
 }: {
   currentTheme?: string;
   value: string;
-  icon: any;
+  icon: React.ElementType;
   label: string;
   onClick: () => void;
 }) {

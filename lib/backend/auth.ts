@@ -20,7 +20,7 @@ export async function verifySession(req: NextRequest): Promise<boolean> {
     const secret = new TextEncoder().encode(secretKey);
     await jwtVerify(cookie.value, secret);
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }

@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Project-specific ignores:
+    "pb_data/**",
+    "pb_migrations/**",
+    "public/sw.js",
+    "public/workbox-*.js",
   ]),
 ]);
 

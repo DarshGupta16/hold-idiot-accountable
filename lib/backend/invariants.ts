@@ -8,8 +8,8 @@ export async function getActiveSession(): Promise<StudySessionRecord | null> {
       .collection("study_sessions")
       .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`);
     return record as unknown as StudySessionRecord;
-  } catch (e: any) {
-    if (e.status === 404) {
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "status" in e && e.status === 404) {
       return null;
     }
     throw e;

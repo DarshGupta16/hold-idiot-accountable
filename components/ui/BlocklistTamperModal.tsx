@@ -64,7 +64,7 @@ export function BlocklistTamperModal({
 
         <div className="space-y-3">
           <p className="text-stone-600 dark:text-stone-300 leading-relaxed text-sm">
-            The server detected that some sites were removed from the blocklist during an active session. This is a violation of the "Zero Trust" policy.
+            The server detected that some sites were removed from the blocklist during an active session. This is a violation of the &quot;Zero Trust&quot; policy.
           </p>
           
           {removedSites.length > 0 && (
