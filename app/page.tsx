@@ -103,10 +103,10 @@ export default function Home() {
 
       return {
         id: log.id,
-        time: new Date(log.created_at).toLocaleTimeString([], {
+        time: log.created_at ? new Date(log.created_at).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
-        }),
+        }) : "—",
         type,
         description: log.message,
       };
