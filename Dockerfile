@@ -1,27 +1,28 @@
-FROM node:20-alpine AS builder
+# Stage 1: Convex Backend Binary
+FROM ghcr.io/get-convex/convex-backend:latest AS convex
+
+# Stage 2: Builder
+FROM node:20 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 
-# Remove dotenv import from worker.ts for production (environment variables are injected by Docker instead)
+# Remove dotenv from worker.ts for production
 RUN sed -i '/import dotenv from "dotenv";/d' worker.ts && \
     sed -i '/dotenv.config/d' worker.ts
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
-# Add dummy environment variables to pass build-time validation/static generation
-ENV GROQ_API_KEY="dummy_key_for_build"
-ENV POCKETBASE_ADMIN_EMAIL="dummy_email_for_build"
-ENV POCKETBASE_ADMIN_PASSWORD="dummy_pass_for_build"
+ENV CONVEX_ADMIN_KEY="dummy_key_for_build"
+ENV CONVEX_URL="http://127.0.0.1:3210"
 RUN npm run build
 
-# Bundle worker.ts into a single file
-# Use tsconfig-paths plugin to resolve @/* path aliases
+# Bundle worker.ts
 RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js --alias:@=.
 
-# Production image, copy all the files and run next
-FROM node:20-alpine AS runner
+# Stage 3: Runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -30,45 +31,38 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Install system dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     supervisor \
     ca-certificates \
-    unzip \
-    wget \
-    openssl
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Download and install PocketBase
-# Using v0.36.2 based on research
-ADD https://github.com/pocketbase/pocketbase/releases/download/v0.36.2/pocketbase_0.36.2_linux_amd64.zip /tmp/pb.zip
-RUN unzip /tmp/pb.zip -d /app/ \
-    && chmod +x /app/pocketbase \
-    && rm /tmp/pb.zip
-
-# Create pb_data directory
-RUN mkdir -p /app/pb_data
+# Copy Convex backend and setup scripts
+COPY --from=convex /convex/convex-backend /app/convex-backend
+COPY --from=convex /convex/generate_admin_key.sh /app/generate_admin_key.sh
+RUN chmod +x /app/convex-backend /app/generate_admin_key.sh
+RUN mkdir -p /app/convex_data
 
 # Copy Next.js standalone build
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy worker and config
+# Copy worker and convex source (for deployment)
 COPY --from=builder /app/worker.js ./worker.js
-COPY --from=builder /app/pb_migrations ./pb_migrations
+COPY --from=builder /app/convex ./convex
 COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
-
 RUN chmod +x ./entrypoint.sh
 
-# Change ownership of /app to node user
-RUN chown -R node:node /app
+# Install convex globally for deployment script
+RUN npm install -g convex
 
-# Switch to non-root user
+# Set up non-root user (node is already created in base image)
+RUN chown -R node:node /app
 USER node
 
-# Expose the Next.js port
 EXPOSE 3000
 
-# Start via entrypoint to handle setup
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
