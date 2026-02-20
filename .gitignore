@@ -50,6 +50,7 @@ setup_test_state.ts
 debug_sessions.ts
 
 GEMINI.md
+PROMPT.md
 
 # bubblewrap stuff
 _build_artifacts/
