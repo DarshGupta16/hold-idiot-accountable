@@ -78,14 +78,9 @@ if [ "${PIPESTATUS[0]}" != "0" ]; then
 fi
 log "Local deployment complete."
 
-# 5. Deploy Convex functions to cloud backup (if configured)
-if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then
-  log "Deploying Convex functions to cloud backup..."
-  CONVEX_URL="$CONVEX_CLOUD_URL" \
-  CONVEX_DEPLOY_KEY="$CONVEX_CLOUD_DEPLOY_KEY" \
-  convex deploy --yes --typecheck disable 2>&1 | while IFS= read -r line; do log "[cloud-deploy] $line"; done
-  log "Cloud deployment attempted."
-fi
+# 5. Cloud deploy REMOVED — cloud schema is already set up.
+# Running 'convex deploy --yes' on every start risks destructive schema changes.
+# To update cloud functions, deploy manually: CONVEX_URL=<cloud_url> CONVEX_DEPLOY_KEY=<key> npx convex deploy
 
 # 5a. Bootstrap local DB from cloud (if local is empty and cloud is configured)
 if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then

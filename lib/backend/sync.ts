@@ -1,6 +1,5 @@
 import { getLocalClient, getCloudClient } from "./convex";
 import { api } from "../../convex/_generated/api";
-import crypto from "crypto";
 
 /**
  * On cold start, if local is empty, pull from cloud.
@@ -86,54 +85,45 @@ export async function reconcile() {
   if (!cloud) return;
 
   try {
-    // Safety check: never overwrite cloud if local is empty
-    const sessionCount = await local.query(api.studySessions.count);
-    const logCount = await local.query(api.logs.count);
-    const varCount = await local.query(api.variables.count);
-    const localTotal = sessionCount + logCount + varCount;
+    // Get counts from both sides
+    const localSessions = await local.query(api.studySessions.count);
+    const localLogs = await local.query(api.logs.count);
+    const localVars = await local.query(api.variables.count);
+    const localTotal = localSessions + localLogs + localVars;
 
-    if (localTotal === 0) {
+    const cloudSessions = await cloud.query(api.studySessions.count);
+    const cloudLogs = await cloud.query(api.logs.count);
+    const cloudVars = await cloud.query(api.variables.count);
+    const cloudTotal = cloudSessions + cloudLogs + cloudVars;
+
+    console.log(
+      `[Sync] Reconciliation check — Local: ${localSessions}s/${localLogs}l/${localVars}v (${localTotal}) | Cloud: ${cloudSessions}s/${cloudLogs}l/${cloudVars}v (${cloudTotal})`,
+    );
+
+    if (localTotal === 0 && cloudTotal > 0) {
       console.log(
-        "[Sync] Local DB is empty — skipping reconciliation to protect cloud data.",
+        "[Sync] Local is empty but cloud has data — running bootstrap...",
       );
-      console.log("[Sync] Attempting bootstrap from cloud instead...");
       await bootstrapFromCloud();
-      return;
+    } else if (localTotal > 0 && cloudTotal === 0) {
+      // Cloud is empty but local has data — push local to cloud (safe, additive only)
+      console.log(
+        "[Sync] Cloud is empty but local has data — pushing to cloud...",
+      );
+      const data = await local.query(api.sync.exportAll);
+      await cloud.mutation(api.sync.importAll, {
+        sessions: data.sessions,
+        logs: data.logs,
+        variables: data.variables,
+      });
+      console.log("[Sync] Pushed local data to cloud.");
+    } else {
+      // Both have data — log only, never delete.
+      // Per-write replication (replicateToCloud) handles ongoing sync.
+      console.log(
+        "[Sync] Both local and cloud have data. No destructive action taken.",
+      );
     }
-
-    const localHash = await local.query(api.sync.computeHash);
-    const cloudHash = await cloud.query(api.sync.computeHash);
-
-    const localSha = crypto
-      .createHash("sha256")
-      .update(localHash)
-      .digest("hex");
-    const cloudSha = crypto
-      .createHash("sha256")
-      .update(cloudHash)
-      .digest("hex");
-
-    if (localSha === cloudSha) {
-      console.log("[Sync] Hashes match, no reconciliation needed.");
-      return;
-    }
-
-    console.log("[Sync] MISMATCH detected. Overwriting cloud with local data.");
-
-    // Clear cloud
-    await cloud.mutation(api.sync.clearAll);
-
-    // Export from local
-    const data = await local.query(api.sync.exportAll);
-
-    // Import to cloud
-    await cloud.mutation(api.sync.importAll, {
-      sessions: data.sessions,
-      logs: data.logs,
-      variables: data.variables,
-    });
-
-    console.log("[Sync] Cloud overwritten successfully.");
   } catch (error) {
     console.error("[Sync] Error during reconciliation:", error);
   }
