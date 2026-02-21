@@ -9,15 +9,27 @@ import { anyApi } from "convex/server";
 const api = anyApi;
 const [, , adminKey, cloudUrl, cloudDeployKey] = process.argv;
 
+function createAuthenticatedClient(url: string, key: string): ConvexHttpClient {
+  const customFetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Convex ${key}`);
+    return fetch(input, { ...init, headers });
+  };
+
+  return new ConvexHttpClient(url, { fetch: customFetch as typeof fetch });
+}
+
 async function bootstrap() {
-  const local = new ConvexHttpClient("http://127.0.0.1:3210");
-  local.setAdminAuth(adminKey);
+  const local = createAuthenticatedClient("http://127.0.0.1:3210", adminKey);
 
   // Check if local has any data
-  const sc = await local.query(api.studySessions.count, {});
-  const lc = await local.query(api.logs.count, {});
-  const vc = await local.query(api.variables.count, {});
-  const total = (sc as number) + (lc as number) + (vc as number);
+  const sc = (await local.query(api.studySessions.count, {})) as number;
+  const lc = (await local.query(api.logs.count, {})) as number;
+  const vc = (await local.query(api.variables.count, {})) as number;
+  const total = sc + lc + vc;
   console.log("[bootstrap] Local record count: " + total);
 
   if (total > 0) {
@@ -26,14 +38,13 @@ async function bootstrap() {
   }
 
   // Connect to cloud
-  const cloud = new ConvexHttpClient(cloudUrl);
-  cloud.setAdminAuth(cloudDeployKey);
+  const cloud = createAuthenticatedClient(cloudUrl, cloudDeployKey);
 
   // Pull data from cloud
   const data = (await cloud.query(api.sync.exportAll, {})) as {
-    sessions: any[];
-    logs: any[];
-    variables: any[];
+    sessions: unknown[];
+    logs: unknown[];
+    variables: unknown[];
   };
   console.log(
     `[bootstrap] Cloud has: ${data.sessions.length} sessions, ${data.logs.length} logs, ${data.variables.length} variables`,
