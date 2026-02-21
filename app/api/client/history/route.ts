@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
+import { getLocalClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Helper to map Convex document to existing frontend shape
+ */
+function mapConvexDoc(doc: any) {
+  if (!doc) return null;
+  const { _id, _creationTime, ...rest } = doc;
+  return {
+    ...rest,
+    id: _id,
+    created_at: new Date(_creationTime).toISOString(),
+  };
+}
 
 export async function GET(req: NextRequest) {
   const isAuthenticated = await verifySession(req);
@@ -11,19 +25,24 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get("page") || "1");
-  const perPage = parseInt(searchParams.get("perPage") || "20");
+  const numItems = parseInt(searchParams.get("perPage") || "20");
+  const cursor = searchParams.get("cursor") || null;
 
-  const pb = await getAuthenticatedPocketBase();
+  const convex = getLocalClient();
 
   try {
-    const result = await pb
-      .collection("study_sessions")
-      .getList(page, perPage, {
-        sort: "-created_at", // Newest first (using created_at as defined in schema)
-      });
+    const result = await convex.query(api.studySessions.list, {
+      paginationOpts: { numItems, cursor },
+    });
 
-    return NextResponse.json(result);
+    // Convex pagination returns { page, isDone, continueCursor }
+    // pocketbase returns { page, perPage, totalItems, totalPages, items }
+    // mapping to something frontend can use:
+    return NextResponse.json({
+      items: result.page.map(mapConvexDoc),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    });
   } catch (e) {
     console.error("Error fetching history:", e);
     return NextResponse.json(

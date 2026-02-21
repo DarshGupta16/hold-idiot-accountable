@@ -1,8 +1,7 @@
 /**
  * Study Sessions Schema Types
  *
- * Types for the PocketBase `study_sessions` collection.
- * @see pb_migrations/1769877159_created_study_sessions.js
+ * Types for the Convex `studySessions` table.
  */
 
 // ============================================================================
@@ -36,8 +35,11 @@ export interface TimelineEvent {
 // ============================================================================
 
 export interface StudySession {
-  /** Auto-generated 15-char ID */
-  id: string;
+  /** Convex document ID */
+  _id: string;
+
+  /** API-mapped ID for frontend (same as _id) */
+  id?: string;
 
   /** When the session started (ISO date string) */
   started_at: string;
@@ -63,9 +65,9 @@ export interface StudySession {
   /** AI-generated summary of the session */
   summary?: string;
 
-  /** Auto-generated on create (ISO date string) */
-  created_at: string;
+  /** Auto-generated on create (numeric millisecond timestamp) */
+  _creationTime: number;
 
-  /** Auto-updated on each update (ISO date string) */
-  updated_at: string;
+  /** API-mapped ISO timestamp for frontend */
+  created_at?: string;
 }

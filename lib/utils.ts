@@ -27,15 +27,3 @@ export function formatDuration(seconds: number): string {
 
   return parts.join(" ");
 }
-
-/**
- * Parses a PocketBase date string to a Date object.
- * PocketBase uses "YYYY-MM-DD HH:mm:ss.sssZ" format (space separator),
- * but JavaScript Date expects ISO format with 'T' separator.
- */
-export function parsePocketBaseDate(dateString: string | undefined): Date {
-  if (!dateString) return new Date(NaN); // Returns Invalid Date
-  // Replace space with 'T' for ISO compatibility
-  const normalized = dateString.replace(" ", "T");
-  return new Date(normalized);
-}

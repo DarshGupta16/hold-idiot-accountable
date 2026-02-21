@@ -1,17 +1,19 @@
 /**
  * Variables Schema Types
  *
- * Types for the PocketBase `variables` collection (key-value store).
- * @see pb_migrations/1769877396_created_variables.js
+ * Types for the Convex `variables` table (key-value store).
  */
 
 // ============================================================================
 // VARIABLE RECORD (Generic)
 // ============================================================================
 
-export interface Variable<T = unknown> {
-  /** Auto-generated 15-char ID */
-  id: string;
+export interface Variable<T = any> {
+  /** Convex document ID */
+  _id: string;
+
+  /** API-mapped ID for frontend (same as _id) */
+  id?: string;
 
   /** Unique key identifier */
   key: string;
@@ -19,8 +21,11 @@ export interface Variable<T = unknown> {
   /** JSON value (type depends on key) */
   value: T;
 
-  /** Auto-updated on create and update (ISO date string) */
-  updated_at: string;
+  /** Auto-generated on create (numeric millisecond timestamp) */
+  _creationTime: number;
+
+  /** API-mapped ISO timestamp for frontend */
+  created_at?: string;
 }
 
 // ============================================================================

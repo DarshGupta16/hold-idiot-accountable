@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 cookies.txt
-pb_data
+.convex/
 
 # scripts
 /scripts
@@ -49,6 +49,7 @@ setup_test_state.ts
 debug_sessions.ts
 
 GEMINI.md
+PROMPT.md
 
 # bubblewrap stuff
 _build_artifacts/

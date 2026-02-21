@@ -1,29 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
+import { getLocalClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 import { generateSessionSummary } from "@/lib/backend/ai";
-import { StudySession, Log, SummaryVariable } from "@/lib/backend/schema";
+import { replicateToCloud } from "@/lib/backend/sync";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  // 1. Auth Check (Critical)
   const isAuthenticated = await verifySession(req);
   if (!isAuthenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pb = await getAuthenticatedPocketBase();
+  const convex = getLocalClient();
 
   try {
-    // 2. Fetch Active or Most Recent Session
-    // We want to summarize whatever is "current" or "just finished"
-    // So usually we fetch the last created session.
-    const session = await pb
-      .collection<StudySession>("study_sessions")
-      .getFirstListItem("", {
-        sort: "-created_at",
-      });
+    const rawSessions = await convex.query(api.studySessions.list, {
+      paginationOpts: { numItems: 1, cursor: null },
+    });
+    const session = rawSessions.page[0];
 
     if (!session) {
       return NextResponse.json(
@@ -32,11 +28,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Fetch logs for that session
-    const logs = await pb.collection<Log>("logs").getFullList({
-      filter: `session = "${session.id}"`,
-      sort: "created_at",
-    });
+    const logs = await convex.query(api.logs.getBySessionAsc, { sessionId: session._id });
 
     // 4. Calculate Duration
     const startTime = new Date(session.started_at);
@@ -51,33 +43,21 @@ export async function POST(req: NextRequest) {
       actualDuration: actualDuration,
     });
 
-    // 6. Store Summary in 'variables' (Singleton state)
-    // We overwrite the 'summary' key.
     const serverNow = new Date().toISOString();
+    const variableValue = {
+      ...aiResult,
+      generated_at: serverNow,
+      session_id: session._id,
+    };
 
-    // Upsert logic for variables
-    try {
-      const existing = await pb
-        .collection<SummaryVariable>("variables")
-        .getFirstListItem('key="summary"');
-
-      await pb.collection<SummaryVariable>("variables").update(existing.id, {
-        value: {
-          ...aiResult, // Spread structured output (summary_text, status_label)
-          generated_at: serverNow,
-          session_id: session.id,
-        },
-      });
-    } catch {
-      await pb.collection<SummaryVariable>("variables").create({
-        key: "summary",
-        value: {
-          ...aiResult,
-          generated_at: serverNow,
-          session_id: session.id,
-        },
-      });
-    }
+    await convex.mutation(api.variables.upsert, {
+      key: "summary",
+      value: variableValue,
+    });
+    await replicateToCloud("variables", "upsert", {
+      key: "summary",
+      value: variableValue,
+    });
 
     return NextResponse.json({ success: true, summary: aiResult });
   } catch (error) {

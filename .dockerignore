@@ -6,10 +6,10 @@ README.md
 .next
 .git
 .env*
-pb_data
+convex/_generated/
+.convex/
 AppImages*
 cookies.txt
-pocketbase
 *.pem
 .DS_Store
 coverage

@@ -10,7 +10,6 @@ import { Navigation } from "@/components/ui/Navigation";
 import useSWR from "swr";
 import { useMemo, useEffect, useState } from "react";
 import { Log } from "@/lib/backend/schema";
-import { parsePocketBaseDate } from "@/lib/utils";
 
 // Fetcher
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -47,7 +46,7 @@ export default function Home() {
       };
     }
 
-    const start = parsePocketBaseDate(startedAt).getTime();
+    const start = new Date(startedAt).getTime();
     const elapsedSeconds = Math.max(0, Math.floor((now - start) / 1000));
     const remainingSeconds = Math.max(0, plannedDuration - elapsedSeconds);
     const isOvertime = elapsedSeconds > plannedDuration;
@@ -104,18 +103,15 @@ export default function Home() {
 
       return {
         id: log.id,
-        time: parsePocketBaseDate(log.created_at).toLocaleTimeString([], {
+        time: log.created_at ? new Date(log.created_at).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
-        }),
+        }) : "—",
         type,
         description: log.message,
       };
     });
   }, [logs]);
-
-  // Heartbeat check (optional visual indicator of "Online")
-  // const isOnline = ...
 
   return (
     <main className="min-h-screen pb-24 transition-colors duration-700">

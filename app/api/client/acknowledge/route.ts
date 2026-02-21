@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedPocketBase } from "@/lib/backend/pocketbase";
+import { getLocalClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
+import { replicateToCloud } from "@/lib/backend/sync";
 
 export async function POST(req: NextRequest) {
   const isAuthenticated = await verifySession(req);
@@ -8,32 +10,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pb = await getAuthenticatedPocketBase();
+  const convex = getLocalClient();
 
   try {
-    // 1. Fetch recent unacknowledged logs (missed heartbeats, breaches, warnings)
-    // Using created_at (as defined in our schema) for sorting
-    const records = await pb.collection("logs").getList(1, 100, {
-      filter: `type = "missed_heartbeat" || type = "breach" || type = "warn"`,
-      sort: "-created_at",
-    });
-
-    // Filter in memory to ensure we only get those where acknowledged is explicitly false or missing
-    const unacknowledged = records.items.filter(
-      (r) => r.metadata?.acknowledged !== true,
+    const unacknowledged = await convex.query(api.logs.getUnacknowledgedAlerts);
+    console.log(
+      `[Acknowledge] Found ${unacknowledged.length} unacknowledged logs.`,
     );
-
-    console.log(`[Acknowledge] Found ${unacknowledged.length} unacknowledged logs.`);
 
     // 2. Update them
     await Promise.all(
-      unacknowledged.map((record) => {
-        return pb.collection("logs").update(record.id, {
-          metadata: {
-            ...(record.metadata || {}),
-            acknowledged: true,
-          },
+      unacknowledged.map((record: any) => {
+        const metadata = {
+          ...(record.metadata || {}),
+          acknowledged: true,
+        };
+        const p1 = convex.mutation(api.logs.updateMetadata, {
+          id: record._id,
+          metadata,
         });
+        const p2 = replicateToCloud("logs", "updateMetadata", {
+          id: record._id, // This ID might not exist on cloud, but sync handles it
+          metadata,
+        });
+        return Promise.all([p1, p2]);
       }),
     );
 

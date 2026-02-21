@@ -1,0 +1,20 @@
+{
+  /* This file is used for type checking your Convex functions.
+   * You can also use it to configure your editor's TypeScript integration.
+   * See https://docs.convex.dev/functions/typescript for more info. */
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "paths": {
+      "~/*": ["./*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.js"]
+}

@@ -1,19 +1,11 @@
-import { getAuthenticatedPocketBase } from "./pocketbase";
-import { SessionStatus, StudySessionRecord } from "./types";
+import { getLocalClient } from "./convex";
+import { api } from "../../convex/_generated/api";
+import { StudySession } from "./schema";
 
-export async function getActiveSession(): Promise<StudySessionRecord | null> {
-  const pb = await getAuthenticatedPocketBase();
-  try {
-    const record = await pb
-      .collection("study_sessions")
-      .getFirstListItem(`status = "${SessionStatus.ACTIVE}"`);
-    return record as unknown as StudySessionRecord;
-  } catch (e: unknown) {
-    if (e && typeof e === "object" && "status" in e && e.status === 404) {
-      return null;
-    }
-    throw e;
-  }
+export async function getActiveSession(): Promise<StudySession | null> {
+  const convex = getLocalClient();
+  const session = await convex.query(api.studySessions.getActive);
+  return session as StudySession | null;
 }
 
 export async function ensureNoActiveSession() {
@@ -23,7 +15,7 @@ export async function ensureNoActiveSession() {
   }
 }
 
-export async function ensureActiveSession(): Promise<StudySessionRecord> {
+export async function ensureActiveSession(): Promise<StudySession> {
   const active = await getActiveSession();
   if (!active) {
     throw new Error("Invariant Violation: No active session found.");
