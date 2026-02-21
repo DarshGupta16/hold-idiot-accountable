@@ -15,8 +15,9 @@ if [ -z "$INSTANCE_SECRET" ]; then
   export INSTANCE_SECRET
 fi
 
-# 1. Start Convex backend in background
+# 1. Start Convex backend in background (from same dir as supervisord will use)
 log "Starting Convex backend..."
+cd /app/convex_data
 /app/convex-local-backend --instance-secret "$INSTANCE_SECRET" --instance-name "convex-self-hosted" --port 3210 2>&1 &
 CONVEX_PID=$!
 log "Convex PID: $CONVEX_PID"
@@ -69,6 +70,7 @@ log "Deploying Convex functions to local backend..."
 log "Using convex CLI at: $(which convex 2>&1 || echo 'NOT FOUND')"
 CONVEX_SELF_HOSTED_URL="http://127.0.0.1:3210" \
 CONVEX_SELF_HOSTED_ADMIN_KEY="$CONVEX_ADMIN_KEY" \
+CONVEX_TMPDIR="/app/tmp" \
 convex deploy --yes --typecheck disable 2>&1 | while IFS= read -r line; do log "[deploy] $line"; done
 if [ "${PIPESTATUS[0]}" != "0" ]; then
   log "ERROR: Local convex deploy failed"
@@ -91,6 +93,14 @@ kill $CONVEX_PID 2>/dev/null || true
 wait $CONVEX_PID 2>/dev/null || true
 log "Temporary backend stopped."
 
-# 7. Hand off to supervisord
+# 7. Write runtime env vars for supervisord child processes
+log "Writing runtime env to /app/.env.runtime..."
+cat > /app/.env.runtime << EOF
+export CONVEX_ADMIN_KEY="$CONVEX_ADMIN_KEY"
+export CONVEX_URL="http://127.0.0.1:3210"
+EOF
+log "Runtime env written."
+
+# 8. Hand off to supervisord
 log "=== HIA Entrypoint Complete, starting supervisord ==="
 exec "$@"

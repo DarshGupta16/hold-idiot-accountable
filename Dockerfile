@@ -50,7 +50,7 @@ RUN cp /app/convex-tools/convex-local-backend /app/convex-local-backend && \
     cp /app/convex-tools/generate_key /app/ 2>/dev/null || true && \
     rm -rf /app/convex-tools && \
     chmod +x /app/convex-local-backend /app/*.sh /app/generate_key 2>/dev/null || true
-RUN mkdir -p /app/convex_data
+RUN mkdir -p /app/convex_data /app/tmp
 
 # Copy Next.js standalone build
 COPY --from=builder /app/public ./public
