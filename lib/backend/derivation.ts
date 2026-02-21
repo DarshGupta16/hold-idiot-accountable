@@ -1,4 +1,4 @@
-import { getLocalClient } from "./convex";
+import { getLocalClient, getCloudClient } from "./convex";
 import { api } from "../../convex/_generated/api";
 import { replicateToCloud } from "./sync";
 import {
@@ -42,7 +42,7 @@ export async function processHeartbeat(
     key: "lastHeartbeatAt",
     value: heartbeatValue,
   });
-  
+
   await replicateToCloud("variables", "upsert", {
     key: "lastHeartbeatAt",
     value: heartbeatValue,
@@ -63,7 +63,10 @@ export async function processSessionStart(
     status: "active" as const,
   };
 
-  const sessionId = await convex.mutation(api.studySessions.create, sessionData);
+  const sessionId = await convex.mutation(
+    api.studySessions.create,
+    sessionData,
+  );
   await replicateToCloud("studySessions", "create", sessionData);
 
   // Store the blocklist in variables
@@ -81,7 +84,7 @@ export async function processSessionStart(
     session: sessionId,
   };
   await convex.mutation(api.logs.create, logData);
-  
+
   // For cloud replication, remove session ID to avoid mismatch
   await replicateToCloud("logs", "create", { ...logData, session: undefined });
 }
@@ -116,7 +119,9 @@ export async function processSessionStop(
   await replicateToCloud("logs", "create", { ...logData, session: undefined });
 
   // Build timeline from logs for this session
-  const logs = await convex.query(api.logs.getBySessionAsc, { sessionId: session._id });
+  const logs = await convex.query(api.logs.getBySessionAsc, {
+    sessionId: session._id,
+  });
 
   const timeline: TimelineEvent[] = logs.map((log: any) => {
     let type: TimelineEventType = "INFO";
@@ -172,23 +177,35 @@ export async function processSessionStop(
   }
 
   // Update session with end time, status, timeline, and summary
-  const sessionUpdate = {
+  const sessionUpdate: Record<string, unknown> = {
     ended_at: serverNow.toISOString(),
     status: newStatus,
-    end_note: note,
     timeline,
     summary: summaryText,
   };
+  if (note) sessionUpdate.end_note = note;
+
   await convex.mutation(api.studySessions.update, {
     id: session._id,
     updates: sessionUpdate,
   });
-  
-  // Cloud replication for update is tricky without ID, but for status/end_note we could try finding active one on cloud
-  // or just rely on periodic reconciliation for session updates.
-  // The plan says: "Replicate all writes to cloud (fire-and-forget, without session references where ID mismatch would occur)"
-  // For update, it's hard to replicate without the same ID.
-  // I'll skip session updates in fire-and-forget replication as it's complex and reconciliation handles it.
+
+  // Replicate session update to cloud by finding the active session there
+  try {
+    const cloud = getCloudClient();
+    if (cloud) {
+      const cloudSession = await cloud.query(api.studySessions.getActive);
+      if (cloudSession) {
+        await cloud.mutation(api.studySessions.update, {
+          id: cloudSession._id,
+          updates: sessionUpdate,
+        });
+        console.log("[Sync] Replicated session update to cloud.");
+      }
+    }
+  } catch (e) {
+    console.error("[Sync] Failed to replicate session update to cloud:", e);
+  }
 }
 
 export async function processBlocklistEvent(
