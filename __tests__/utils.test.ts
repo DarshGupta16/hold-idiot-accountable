@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { formatDuration, cn } from '@/lib/utils';
+import { describe, it, expect } from "bun:test";
+import { formatDuration, cn } from "@/lib/utils";
 
-describe('utils', () => {
+describe("utils", () => {
   describe('formatDuration', () => {
     it('formats hours, minutes, and seconds correctly', () => {
       expect(formatDuration(3600)).toBe('1hr');
