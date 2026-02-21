@@ -4,7 +4,7 @@
    * See https://docs.convex.dev/functions/typescript for more info. */
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "isolatedModules": true,
