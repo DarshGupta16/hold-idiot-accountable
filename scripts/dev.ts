@@ -22,8 +22,7 @@ async function startDev() {
 
   // Handle shutdown
   process.on("SIGINT", () => {
-    console.log("
-\x1b[33m%s\x1b[0m", "Shutting down...");
+    console.log("\n\x1b[33m%s\x1b[0m", "Shutting down...");
     worker.kill();
     next.kill();
     process.exit(0);
