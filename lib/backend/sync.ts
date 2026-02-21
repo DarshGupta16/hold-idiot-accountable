@@ -22,14 +22,18 @@ export async function bootstrapFromCloud() {
       console.log("[Sync] Local DB is empty. Bootstrapping from cloud...");
       const data = await cloud.query(api.sync.exportAll);
 
-      if (data.sessions.length > 0 || data.logs.length > 0 || data.variables.length > 0) {
+      if (
+        data.sessions.length > 0 ||
+        data.logs.length > 0 ||
+        data.variables.length > 0
+      ) {
         await local.mutation(api.sync.importAll, {
           sessions: data.sessions,
           logs: data.logs,
           variables: data.variables,
         });
         console.log(
-          `[Sync] Bootstrapped from cloud: ${data.sessions.length} sessions, ${data.logs.length} logs, ${data.variables.length} variables`
+          `[Sync] Bootstrapped from cloud: ${data.sessions.length} sessions, ${data.logs.length} logs, ${data.variables.length} variables`,
         );
       } else {
         console.log("[Sync] Cloud is also empty. Nothing to bootstrap.");
@@ -48,7 +52,7 @@ export async function bootstrapFromCloud() {
 export async function replicateToCloud(
   table: string,
   operation: string,
-  args: any
+  args: any,
 ) {
   const cloud = getCloudClient();
   if (!cloud) return;
@@ -65,7 +69,10 @@ export async function replicateToCloud(
       console.warn(`[Sync] Unknown API for replication: ${table}.${operation}`);
     }
   } catch (error) {
-    console.error(`[Sync] Replication failed for ${table}.${operation}:`, error);
+    console.error(
+      `[Sync] Replication failed for ${table}.${operation}:`,
+      error,
+    );
   }
 }
 
@@ -79,11 +86,32 @@ export async function reconcile() {
   if (!cloud) return;
 
   try {
+    // Safety check: never overwrite cloud if local is empty
+    const sessionCount = await local.query(api.studySessions.count);
+    const logCount = await local.query(api.logs.count);
+    const varCount = await local.query(api.variables.count);
+    const localTotal = sessionCount + logCount + varCount;
+
+    if (localTotal === 0) {
+      console.log(
+        "[Sync] Local DB is empty — skipping reconciliation to protect cloud data.",
+      );
+      console.log("[Sync] Attempting bootstrap from cloud instead...");
+      await bootstrapFromCloud();
+      return;
+    }
+
     const localHash = await local.query(api.sync.computeHash);
     const cloudHash = await cloud.query(api.sync.computeHash);
 
-    const localSha = crypto.createHash("sha256").update(localHash).digest("hex");
-    const cloudSha = crypto.createHash("sha256").update(cloudHash).digest("hex");
+    const localSha = crypto
+      .createHash("sha256")
+      .update(localHash)
+      .digest("hex");
+    const cloudSha = crypto
+      .createHash("sha256")
+      .update(cloudHash)
+      .digest("hex");
 
     if (localSha === cloudSha) {
       console.log("[Sync] Hashes match, no reconciliation needed.");
@@ -91,13 +119,13 @@ export async function reconcile() {
     }
 
     console.log("[Sync] MISMATCH detected. Overwriting cloud with local data.");
-    
+
     // Clear cloud
     await cloud.mutation(api.sync.clearAll);
-    
+
     // Export from local
     const data = await local.query(api.sync.exportAll);
-    
+
     // Import to cloud
     await cloud.mutation(api.sync.importAll, {
       sessions: data.sessions,
