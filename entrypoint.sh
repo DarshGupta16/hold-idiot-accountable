@@ -1,51 +1,96 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -eo pipefail
 
-# 1. Start Convex backend in background for initial setup
-/app/convex-backend &
+# Trap errors with line info
+trap 'log ">>> FATAL: entrypoint.sh failed at line $LINENO (exit code $?)"' ERR
+
+log() { echo "[entrypoint] $1" >&2; }
+
+log "=== HIA Entrypoint Starting ==="
+
+# 0. Validate INSTANCE_SECRET
+if [ -z "$INSTANCE_SECRET" ]; then
+  log "WARNING: INSTANCE_SECRET not set, generating a random one (not persistent across restarts!)"
+  INSTANCE_SECRET=$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')
+  export INSTANCE_SECRET
+fi
+
+# 1. Start Convex backend in background
+log "Starting Convex backend..."
+/app/convex-local-backend --instance-secret "$INSTANCE_SECRET" --instance-name "convex-self-hosted" --port 3210 2>&1 &
 CONVEX_PID=$!
+log "Convex PID: $CONVEX_PID"
 
 # 2. Wait for Convex to be healthy
-echo "Waiting for Convex backend to start..."
+log "Waiting for health check on http://127.0.0.1:3210/version ..."
 n=0
 until curl -sf http://127.0.0.1:3210/version > /dev/null 2>&1; do
+  if ! kill -0 $CONVEX_PID 2>/dev/null; then
+    log "ERROR: Convex backend process (PID $CONVEX_PID) died during startup"
+    exit 1
+  fi
   n=$((n + 1))
   if [ $n -ge 60 ]; then
-    echo "ERROR: Convex backend failed to start after 60 seconds"
+    log "ERROR: Convex backend failed health check after 60 seconds"
     exit 1
   fi
   sleep 1
 done
-echo "Convex backend is healthy."
+log "Convex backend is healthy (took ${n}s)."
 
-# 3. Generate admin key (if not already set)
+# 3. Generate admin key
 if [ -z "$CONVEX_ADMIN_KEY" ]; then
-  echo "Generating Convex admin key..."
-  # Executing the script inside the container (already copied in Dockerfile)
-  CONVEX_ADMIN_KEY=$(/app/generate_admin_key.sh)
+  log "Generating Convex admin key..."
+  cd /app
+  KEY_OUTPUT=$(./generate_admin_key.sh 2>&1) || {
+    log "WARNING: generate_admin_key.sh failed: $KEY_OUTPUT"
+    KEY_OUTPUT=""
+  }
+  if [ -n "$KEY_OUTPUT" ]; then
+    # Extract just the key line (starts with "convex-self-hosted|" or similar)
+    CONVEX_ADMIN_KEY=$(echo "$KEY_OUTPUT" | grep -o 'convex-self-hosted|[^ ]*' | head -1)
+    if [ -z "$CONVEX_ADMIN_KEY" ]; then
+      # Fallback: take the last non-empty line
+      CONVEX_ADMIN_KEY=$(echo "$KEY_OUTPUT" | tail -1 | tr -d '[:space:]')
+    fi
+  fi
+  if [ -z "$CONVEX_ADMIN_KEY" ]; then
+    log "ERROR: Could not extract admin key"
+    exit 1
+  fi
   export CONVEX_ADMIN_KEY
-  echo "Admin key generated."
+  log "Admin key generated (length: ${#CONVEX_ADMIN_KEY})."
+else
+  log "CONVEX_ADMIN_KEY already set from environment."
 fi
 
 # 4. Deploy Convex functions to local backend
-echo "Deploying Convex functions to local backend..."
+log "Deploying Convex functions to local backend..."
+log "Using convex CLI at: $(which convex 2>&1 || echo 'NOT FOUND')"
 CONVEX_SELF_HOSTED_URL="http://127.0.0.1:3210" \
 CONVEX_SELF_HOSTED_ADMIN_KEY="$CONVEX_ADMIN_KEY" \
-npx convex deploy --yes
-echo "Local deployment complete."
+convex deploy --yes --typecheck disable 2>&1 | while IFS= read -r line; do log "[deploy] $line"; done
+if [ "${PIPESTATUS[0]}" != "0" ]; then
+  log "ERROR: Local convex deploy failed"
+  exit 1
+fi
+log "Local deployment complete."
 
 # 5. Deploy Convex functions to cloud backup (if configured)
 if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then
-  echo "Deploying Convex functions to cloud backup..."
+  log "Deploying Convex functions to cloud backup..."
   CONVEX_URL="$CONVEX_CLOUD_URL" \
   CONVEX_DEPLOY_KEY="$CONVEX_CLOUD_DEPLOY_KEY" \
-  npx convex deploy --yes
-  echo "Cloud deployment complete."
+  convex deploy --yes --typecheck disable 2>&1 | while IFS= read -r line; do log "[cloud-deploy] $line"; done
+  log "Cloud deployment attempted."
 fi
 
 # 6. Stop the temporary Convex backend (supervisord will manage it)
+log "Stopping temporary Convex backend (PID $CONVEX_PID)..."
 kill $CONVEX_PID 2>/dev/null || true
 wait $CONVEX_PID 2>/dev/null || true
+log "Temporary backend stopped."
 
 # 7. Hand off to supervisord
+log "=== HIA Entrypoint Complete, starting supervisord ==="
 exec "$@"

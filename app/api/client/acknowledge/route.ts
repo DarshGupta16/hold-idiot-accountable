@@ -14,11 +14,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const unacknowledged = await convex.query(api.logs.getUnacknowledgedAlerts);
-    console.log(`[Acknowledge] Found ${unacknowledged.length} unacknowledged logs.`);
+    console.log(
+      `[Acknowledge] Found ${unacknowledged.length} unacknowledged logs.`,
+    );
 
     // 2. Update them
     await Promise.all(
-      unacknowledged.map((record) => {
+      unacknowledged.map((record: any) => {
         const metadata = {
           ...(record.metadata || {}),
           acknowledged: true,

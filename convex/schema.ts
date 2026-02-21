@@ -10,7 +10,7 @@ export default defineSchema({
     status: v.union(
       v.literal("active"),
       v.literal("completed"),
-      v.literal("aborted")
+      v.literal("aborted"),
     ),
     end_note: v.optional(v.string()),
     timeline: v.optional(
@@ -23,16 +23,14 @@ export default defineSchema({
             v.literal("END"),
             v.literal("BREACH"),
             v.literal("WARNING"),
-            v.literal("INFO")
+            v.literal("INFO"),
           ),
           description: v.string(),
-        })
-      )
+        }),
+      ),
     ),
     summary: v.optional(v.string()),
-  })
-    .index("by_status", ["status"])
-    .index("by_creation", ["_creationTime"]),
+  }).index("by_status", ["status"]),
 
   logs: defineTable({
     type: v.union(
@@ -41,15 +39,14 @@ export default defineSchema({
       v.literal("blocklist_change"),
       v.literal("warn"),
       v.literal("breach"),
-      v.literal("missed_heartbeat")
+      v.literal("missed_heartbeat"),
     ),
     message: v.string(),
     metadata: v.optional(v.any()),
     session: v.optional(v.id("studySessions")),
   })
     .index("by_session", ["session"])
-    .index("by_type", ["type"])
-    .index("by_creation", ["_creationTime"]),
+    .index("by_type", ["type"]),
 
   variables: defineTable({
     key: v.string(),

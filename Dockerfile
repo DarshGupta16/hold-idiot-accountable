@@ -12,6 +12,11 @@ COPY . .
 RUN sed -i '/import dotenv from "dotenv";/d' worker.ts && \
     sed -i '/dotenv.config/d' worker.ts
 
+# Generate convex/_generated/api.ts inline
+# (Render strips this directory from the build context despite it being in git)
+RUN mkdir -p convex/_generated && \
+    echo 'import { anyApi } from "convex/server"; export const api = anyApi;' > convex/_generated/api.ts
+
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CONVEX_ADMIN_KEY="dummy_key_for_build"
@@ -22,7 +27,7 @@ RUN npm run build
 RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js --alias:@=.
 
 # Stage 3: Runner
-FROM node:20-slim AS runner
+FROM node:20-trixie-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -35,12 +40,16 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     ca-certificates \
     curl \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Convex backend and setup scripts
-COPY --from=convex /convex/convex-backend /app/convex-backend
-COPY --from=convex /convex/generate_admin_key.sh /app/generate_admin_key.sh
-RUN chmod +x /app/convex-backend /app/generate_admin_key.sh
+# Copy Convex backend binary and ALL helper files (scripts + binaries like generate_key)
+COPY --from=convex /convex/ /app/convex-tools/
+RUN cp /app/convex-tools/convex-local-backend /app/convex-local-backend && \
+    cp /app/convex-tools/*.sh /app/ 2>/dev/null || true && \
+    cp /app/convex-tools/generate_key /app/ 2>/dev/null || true && \
+    rm -rf /app/convex-tools && \
+    chmod +x /app/convex-local-backend /app/*.sh /app/generate_key 2>/dev/null || true
 RUN mkdir -p /app/convex_data
 
 # Copy Next.js standalone build
@@ -55,11 +64,14 @@ COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-# Install convex globally for deployment script
-RUN npm install -g convex
+# Install convex globally (CLI) + symlink into project node_modules (for esbuild bundler)
+RUN npm install -g convex && \
+    mkdir -p /app/node_modules && \
+    ln -s /usr/local/lib/node_modules/convex /app/node_modules/convex
 
 # Set up non-root user (node is already created in base image)
-RUN chown -R node:node /app
+# /convex is needed by generate_admin_key.sh
+RUN mkdir -p /convex && chown -R node:node /app /convex
 USER node
 
 EXPOSE 3000
