@@ -23,8 +23,9 @@ ENV CONVEX_ADMIN_KEY="dummy_key_for_build"
 ENV CONVEX_URL="http://127.0.0.1:3210"
 RUN npm run build
 
-# Bundle worker.ts
+# Bundle worker.ts and bootstrap.ts
 RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js --alias:@=.
+RUN npx esbuild bootstrap.ts --bundle --platform=node --outfile=bootstrap.js --alias:@=.
 
 # Stage 3: Runner
 FROM node:20-trixie-slim AS runner
@@ -59,6 +60,7 @@ COPY --from=builder /app/.next/static ./.next/static
 
 # Copy worker and convex source (for deployment)
 COPY --from=builder /app/worker.js ./worker.js
+COPY --from=builder /app/bootstrap.js ./bootstrap.js
 COPY --from=builder /app/convex ./convex
 COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
