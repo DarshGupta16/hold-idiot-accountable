@@ -85,6 +85,20 @@ if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then
   CONVEX_DEPLOY_KEY="$CONVEX_CLOUD_DEPLOY_KEY" \
   convex deploy --yes --typecheck disable 2>&1 | while IFS= read -r line; do log "[cloud-deploy] $line"; done
   log "Cloud deployment attempted."
+# 5a. Bootstrap local DB from cloud (if local is empty and cloud is configured)
+if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then
+  log "Checking if local DB needs bootstrap from cloud..."
+  CONVEX_ADMIN_KEY="$CONVEX_ADMIN_KEY" \
+  CONVEX_URL="http://127.0.0.1:3210" \
+  CONVEX_CLOUD_URL="$CONVEX_CLOUD_URL" \
+  CONVEX_CLOUD_DEPLOY_KEY="$CONVEX_CLOUD_DEPLOY_KEY" \
+  node -e "
+    const { bootstrapFromCloud } = require('./lib/backend/sync');
+    bootstrapFromCloud()
+      .then(() => { console.log('[entrypoint] Bootstrap check complete.'); process.exit(0); })
+      .catch(e => { console.error('[entrypoint] Bootstrap error:', e.message); process.exit(0); });
+  " 2>&1 | while IFS= read -r line; do log "$line"; done
+  log "Bootstrap step done."
 fi
 
 # 6. Stop the temporary Convex backend (supervisord will manage it)
