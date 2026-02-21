@@ -98,6 +98,8 @@ log "Writing runtime env to /app/.env.runtime..."
 cat > /app/.env.runtime << EOF
 export CONVEX_ADMIN_KEY="$CONVEX_ADMIN_KEY"
 export CONVEX_URL="http://127.0.0.1:3210"
+export CONVEX_CLOUD_URL="${CONVEX_CLOUD_URL:-}"
+export CONVEX_CLOUD_DEPLOY_KEY="${CONVEX_CLOUD_DEPLOY_KEY:-}"
 EOF
 log "Runtime env written."
 
