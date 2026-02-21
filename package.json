@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun worker.ts & next dev --webpack",
+    "dev": "bun scripts/dev.ts",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "bun test",
     "worker": "bun worker.ts",
+    "convex:dev": "bun x convex dev --local",
     "convex:local": "docker run --rm -p 3210:3210 -v $(pwd)/convex_data:/app/convex_data -e INSTANCE_SECRET=$INSTANCE_SECRET ghcr.io/get-convex/convex-backend:latest /app/convex-local-backend --instance-secret $INSTANCE_SECRET --instance-name convex-self-hosted --port 3210"
   },
   "dependencies": {
