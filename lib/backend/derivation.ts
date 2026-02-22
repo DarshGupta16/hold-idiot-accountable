@@ -133,10 +133,7 @@ export async function processSessionStop(
     const logDate = new Date(log._creationTime);
     return {
       id: log._id,
-      time: logDate.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: logDate.toISOString(),
       type,
       description: log.message,
     };

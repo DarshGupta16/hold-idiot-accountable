@@ -28,19 +28,24 @@ export default function LogsPage() {
       const dateObj = new Date(session.started_at);
       // Format Date: "Today", "Yesterday", or "Jan 28"
       const now = new Date();
-      const isToday = dateObj.toDateString() === now.toDateString();
+      
+      const isToday = dateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) === 
+                      now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
 
-      let dateLabel = dateObj.toLocaleDateString("en-US", {
+      let dateLabel = dateObj.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
         month: "short",
         day: "numeric",
       });
-      if (isToday) dateLabel = "Today";
-      else if (
-        new Date(
-          new Date().setDate(new Date().getDate() - 1),
-        ).toDateString() === dateObj.toDateString()
-      ) {
-        dateLabel = "Yesterday";
+      
+      if (isToday) {
+        dateLabel = "Today";
+      } else {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = dateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) === 
+                            yesterday.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+        if (isYesterday) dateLabel = "Yesterday";
       }
 
       if (!groups[dateLabel]) groups[dateLabel] = [];
@@ -64,12 +69,14 @@ export default function LogsPage() {
 
   // Helper to format time range
   const formatTimeRange = (session: StudySession) => {
-    const startTime = new Date(session.started_at).toLocaleTimeString([], {
+    const startTime = new Date(session.started_at).toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
       hour: "2-digit",
       minute: "2-digit",
     });
     const endTime = session.ended_at
-      ? new Date(session.ended_at).toLocaleTimeString([], {
+      ? new Date(session.ended_at).toLocaleTimeString("en-IN", {
+          timeZone: "Asia/Kolkata",
           hour: "2-digit",
           minute: "2-digit",
         })

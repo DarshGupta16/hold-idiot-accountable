@@ -70,11 +70,12 @@ export default function Home() {
     const startDate = new Date(start);
     const endDate = new Date(start + plannedDuration * 1000);
     const timeFormat: Intl.DateTimeFormatOptions = {
+      timeZone: "Asia/Kolkata",
       hour: "2-digit",
       minute: "2-digit",
     };
-    const startTime = startDate.toLocaleTimeString([], timeFormat);
-    const endTime = endDate.toLocaleTimeString([], timeFormat);
+    const startTime = startDate.toLocaleTimeString("en-IN", timeFormat);
+    const endTime = endDate.toLocaleTimeString("en-IN", timeFormat);
 
     return { display, progressPercent, isOvertime, startTime, endTime };
   }, [now, startedAt, plannedDuration]);
@@ -103,7 +104,8 @@ export default function Home() {
 
       return {
         id: log.id,
-        time: log.created_at ? new Date(log.created_at).toLocaleTimeString([], {
+        time: log.created_at ? new Date(log.created_at).toLocaleTimeString("en-IN", {
+          timeZone: "Asia/Kolkata",
           hour: "2-digit",
           minute: "2-digit",
         }) : "—",

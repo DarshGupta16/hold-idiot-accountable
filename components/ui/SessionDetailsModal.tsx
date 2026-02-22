@@ -20,15 +20,21 @@ export function SessionDetailsModal({
   const startDate = new Date(session.started_at);
   const endDate = session.ended_at ? new Date(session.ended_at) : null;
 
-  const startTime = startDate.toLocaleTimeString([], {
+  const startTime = startDate.toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
   });
   const endTime = endDate
-    ? endDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? endDate.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "—";
 
-  const dateStr = startDate.toLocaleDateString("en-US", {
+  const dateStr = startDate.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -66,7 +72,7 @@ export function SessionDetailsModal({
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-stone-100 dark:border-stone-800">
           <div className="min-w-0 flex-1 pr-4">
-            <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50 truncate font-[family-name:var(--font-montserrat)]">
+            <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50 font-[family-name:var(--font-montserrat)]">
               {session.subject}
             </h2>
             <p className="text-xs text-stone-400 font-mono mt-1">{dateStr}</p>
@@ -205,7 +211,16 @@ export function SessionDetailsModal({
 
                       <div className="flex items-baseline gap-3">
                         <span className="font-mono text-xs text-stone-400 shrink-0">
-                          {event.time}
+                          {(() => {
+                            const d = new Date(event.time);
+                            return isNaN(d.getTime())
+                              ? event.time
+                              : d.toLocaleTimeString("en-IN", {
+                                  timeZone: "Asia/Kolkata",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                });
+                          })()}
                         </span>
                         <span
                           className={cn(
