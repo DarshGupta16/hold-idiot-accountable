@@ -52,11 +52,8 @@ export default function Home() {
     const isOvertime = elapsedSeconds > plannedDuration;
     const overtimeSeconds = isOvertime ? elapsedSeconds - plannedDuration : 0;
 
-    // Progress: 100% at start, 0% when time is up
-    const progressPercent = Math.max(
-      0,
-      (remainingSeconds / plannedDuration) * 100,
-    );
+    // Progress: 0% at start, 100% when time is up, >100% in overtime
+    const progressPercent = (elapsedSeconds / plannedDuration) * 100;
 
     // Format display: countdown or overtime
     const displaySeconds = isOvertime ? overtimeSeconds : remainingSeconds;

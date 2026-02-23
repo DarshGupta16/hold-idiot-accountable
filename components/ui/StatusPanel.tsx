@@ -76,8 +76,13 @@ export function StatusPanel({
                   ? "bg-red-500/60 dark:bg-red-500/50"
                   : "bg-stone-500 dark:bg-stone-400",
               )}
-              style={{ width: `${progressPercent}%` }}
+              style={{ width: `${Math.min(100, progressPercent)}%` }}
             />
+          </div>
+
+          {/* Progress indicator */}
+          <div className="text-center text-[10px] uppercase tracking-[0.2em] text-stone-400 font-mono">
+            {Math.round(progressPercent)}% completed
           </div>
 
           {/* Time metadata */}
