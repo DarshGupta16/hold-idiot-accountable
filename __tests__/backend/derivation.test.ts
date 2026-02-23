@@ -27,7 +27,7 @@ describe('derivation', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   describe('processHeartbeat', () => {
@@ -45,7 +45,7 @@ describe('derivation', () => {
 
   describe('processSessionStart', () => {
     it('creates session, stores blocklist, creates log, and replicates', async () => {
-      (ensureNoActiveSession as any).mockResolvedValue(undefined);
+      vi.mocked(ensureNoActiveSession).mockResolvedValue(undefined);
       mockLocal.mutation.mockResolvedValue('session123');
       
       const payload = {
@@ -81,7 +81,7 @@ describe('derivation', () => {
         planned_duration_sec: 3600,
         subject: 'Math',
       };
-      (ensureActiveSession as any).mockResolvedValue(session);
+      vi.mocked(ensureActiveSession).mockResolvedValue(session as unknown as Awaited<ReturnType<typeof ensureActiveSession>>);
       mockLocal.query.mockResolvedValue([]); // logs for timeline
       
       await processSessionStop({ reason: 'finished' });
@@ -100,7 +100,7 @@ describe('derivation', () => {
         planned_duration_sec: 3600, // 1 hour planned
         subject: 'Math',
       };
-      (ensureActiveSession as any).mockResolvedValue(session);
+      vi.mocked(ensureActiveSession).mockResolvedValue(session as unknown as Awaited<ReturnType<typeof ensureActiveSession>>);
       mockLocal.query.mockResolvedValue([]);
       
       await processSessionStop({ reason: 'giving up' });
@@ -114,9 +114,9 @@ describe('derivation', () => {
 
   describe('processBlocklistEvent', () => {
     it('creates breach log when violation occurs', async () => {
-      (getActiveSession as any).mockResolvedValue({ _id: 's1' });
+      vi.mocked(getActiveSession).mockResolvedValue({ _id: 's1' } as unknown as Awaited<ReturnType<typeof getActiveSession>>);
       const payload = {
-        type: 'violation' as any,
+        type: 'violation' as const,
         removed_sites: ['evil.com'],
         timestamp: '...',
       };

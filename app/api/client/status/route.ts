@@ -4,13 +4,14 @@ import { api } from "@/convex/_generated/api";
 import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
 import { config } from "@/lib/backend/config";
 import { replicateToCloud } from "@/lib/backend/sync";
+import { SummaryValue, Log } from "@/lib/backend/schema";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Helper to map Convex document to existing frontend shape
  */
-function mapConvexDoc(doc: any) {
+function mapConvexDoc<T extends { _id: string; _creationTime: number }>(doc: T | null) {
   if (!doc) return null;
   const { _id, _creationTime, ...rest } = doc;
   return {
@@ -50,15 +51,15 @@ export async function GET(req: NextRequest) {
 
   const activeSession = mapConvexDoc(activeSessionRaw);
   const lastHeartbeat = heartbeatVar?.value;
-  const summary = summaryVar?.value;
+  const summary = summaryVar?.value as SummaryValue | undefined;
   const blocklist = blocklistVar?.value || [];
 
   // 3. Fetch Logs
-  let logs: any[] = [];
+  let logs: unknown[] = [];
   const sessionId = activeSession?.id || summary?.session_id;
   if (sessionId) {
     const rawLogs = await convex.query(api.logs.getBySession, { sessionId });
-    logs = rawLogs.map(mapConvexDoc);
+    logs = rawLogs.map((l: Log) => mapConvexDoc(l));
   }
 
   // 4. Lazy Watchdog
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
     const diffMinutes = diffSeconds / 60;
 
     if (diffSeconds > 33) {
-      const existingMissed = logs.find(
+      const existingMissed = (logs as { type: string; metadata?: { acknowledged?: boolean } }[]).find(
         (l) => l.type === "missed_heartbeat" && l.metadata?.acknowledged !== true
       );
 

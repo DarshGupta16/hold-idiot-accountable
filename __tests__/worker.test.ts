@@ -1,7 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, vi, beforeEach } from 'vitest';
 import { getLocalClient } from '@/lib/backend/convex';
-import { api } from '@/convex/_generated/api';
-import { replicateToCloud } from '@/lib/backend/sync';
 
 // We need to mock things BEFORE importing worker.ts
 vi.mock('@/lib/backend/convex');
@@ -25,7 +23,7 @@ describe('worker', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   it('checkHeartbeat creates log when heartbeat is stale and session is active', async () => {

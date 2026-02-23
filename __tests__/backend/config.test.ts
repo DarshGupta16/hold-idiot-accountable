@@ -1,11 +1,11 @@
-import { describe, it, expect, mock, beforeEach, afterEach, spyOn } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test";
 
 describe("config", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     // Bun's equivalent of resetting modules is manually clearing require.cache
-    // @ts-ignore
+    // @ts-expect-error - require.cache is not strictly typed in this context
     delete require.cache[require.resolve("@/lib/backend/config")];
     process.env = { ...originalEnv };
   });
@@ -38,8 +38,8 @@ describe("config", () => {
     
     // Simulate server-side
     const originalWindow = global.window;
-    // @ts-ignore
-    delete global.window;
+    // @ts-expect-error - simulating node environment by removing window
+    delete (global as { window?: unknown }).window;
     
     await import("@/lib/backend/config");
     

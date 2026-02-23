@@ -3,6 +3,7 @@ import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 import { replicateToCloud } from "@/lib/backend/sync";
+import { Log } from "@/lib/backend/schema";
 
 export async function POST(req: NextRequest) {
   const isAuthenticated = await verifySession(req);
@@ -20,9 +21,9 @@ export async function POST(req: NextRequest) {
 
     // 2. Update them
     await Promise.all(
-      unacknowledged.map((record: any) => {
+      unacknowledged.map((record: Log) => {
         const metadata = {
-          ...(record.metadata || {}),
+          ...(record.metadata as Record<string, unknown> || {}),
           acknowledged: true,
         };
         const p1 = convex.mutation(api.logs.updateMetadata, {

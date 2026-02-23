@@ -34,7 +34,7 @@ export interface Log {
   message: string;
 
   /** Optional JSON metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /** Relation to studySessions table (optional) */
   session?: string;

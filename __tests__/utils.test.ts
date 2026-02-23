@@ -23,7 +23,7 @@ describe("utils", () => {
   describe('parsePocketBaseDate', () => {
     it('should no longer exist', async () => {
       const utils = await import('@/lib/utils');
-      // @ts-ignore
+      // @ts-expect-error - checking for deleted function
       expect(utils.parsePocketBaseDate).toBeUndefined();
     });
   });

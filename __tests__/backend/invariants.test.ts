@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getActiveSession, ensureNoActiveSession, ensureActiveSession } from '@/lib/backend/invariants';
 import { getLocalClient } from '@/lib/backend/convex';
-import { api } from '@/convex/_generated/api';
 
 vi.mock('@/lib/backend/convex');
 vi.mock('@/convex/_generated/api', () => ({
@@ -17,7 +16,7 @@ describe('invariants', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   it('getActiveSession() returns session from convex', async () => {

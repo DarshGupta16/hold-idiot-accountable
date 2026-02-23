@@ -2,7 +2,6 @@ import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import {
-  EventType,
   SessionStartSchema,
   SessionStopSchema,
   BlocklistEventSchema,
@@ -21,6 +20,7 @@ import {
   SessionStatus,
   TimelineEvent,
   TimelineEventType,
+  LogType,
 } from "@/lib/backend/schema";
 
 export async function processHeartbeat(
@@ -130,7 +130,7 @@ export async function processSessionStop(
     sessionId: session._id,
   });
 
-  const timeline: TimelineEvent[] = logs.map((log: any) => {
+  const timeline: TimelineEvent[] = logs.map((log: Log) => {
     let type: TimelineEventType = "INFO";
     if (log.type === "session_start") type = "START";
     if (log.type === "session_end") type = "END";
@@ -225,7 +225,7 @@ export async function processBlocklistEvent(
       : `${logType.toUpperCase()}: Blocklist event detected.`;
 
   const logData = {
-    type: logType as any,
+    type: logType as LogType,
     message,
     metadata: {
       ...payload,

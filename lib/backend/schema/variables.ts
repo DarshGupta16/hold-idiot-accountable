@@ -8,7 +8,7 @@
 // VARIABLE RECORD (Generic)
 // ============================================================================
 
-export interface Variable<T = any> {
+export interface Variable<T = unknown> {
   /** Convex document ID */
   _id: string;
 

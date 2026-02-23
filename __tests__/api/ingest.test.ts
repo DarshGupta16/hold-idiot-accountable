@@ -13,7 +13,7 @@ describe('POST /api/webhooks/ingest', () => {
   });
 
   it('returns 401 when unauthorized', async () => {
-    (verifyHomelabKey as any).mockResolvedValue(false);
+    vi.mocked(verifyHomelabKey).mockResolvedValue(false);
     const req = new NextRequest('http://localhost/api/webhooks/ingest', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -23,7 +23,7 @@ describe('POST /api/webhooks/ingest', () => {
   });
 
   it('dispatches heartbeat event', async () => {
-    (verifyHomelabKey as any).mockResolvedValue(true);
+    vi.mocked(verifyHomelabKey).mockResolvedValue(true);
     const payload = {
       event_type: 'HEARTBEAT',
       timestamp: new Date().toISOString(),
@@ -43,8 +43,8 @@ describe('POST /api/webhooks/ingest', () => {
   });
 
   it('returns 409 on invariant violation', async () => {
-    (verifyHomelabKey as any).mockResolvedValue(true);
-    (processSessionStart as any).mockRejectedValue(new Error('Invariant Violation: ...'));
+    vi.mocked(verifyHomelabKey).mockResolvedValue(true);
+    vi.mocked(processSessionStart).mockRejectedValue(new Error('Invariant Violation: ...'));
 
     const payload = {
       event_type: 'SESSION_START',

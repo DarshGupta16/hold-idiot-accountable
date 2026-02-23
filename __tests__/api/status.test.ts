@@ -4,7 +4,6 @@ import { NextRequest } from 'next/server';
 import { verifySession, verifyHomelabKey } from '@/lib/backend/auth';
 import { getLocalClient } from '@/lib/backend/convex';
 import { api } from '@/convex/_generated/api';
-import { config } from '@/lib/backend/config';
 
 vi.mock('@/lib/backend/auth');
 vi.mock('@/lib/backend/convex');
@@ -27,12 +26,12 @@ describe('GET /api/client/status', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   it('returns 401 when unauthorized', async () => {
-    (verifySession as any).mockResolvedValue(false);
-    (verifyHomelabKey as any).mockResolvedValue(false);
+    vi.mocked(verifySession).mockResolvedValue(false);
+    vi.mocked(verifyHomelabKey).mockResolvedValue(false);
 
     const req = new NextRequest('http://localhost/api/client/status');
     const res = await GET(req);
@@ -41,7 +40,7 @@ describe('GET /api/client/status', () => {
   });
 
   it('returns data when authorized', async () => {
-    (verifySession as any).mockResolvedValue(true);
+    vi.mocked(verifySession).mockResolvedValue(true);
     mockLocal.query.mockResolvedValueOnce({ _id: 's1', _creationTime: Date.now(), status: 'active' }); // session
     mockLocal.query.mockResolvedValueOnce({ value: { timestamp: new Date().toISOString() } }); // heartbeat
     mockLocal.query.mockResolvedValueOnce(null); // summary
@@ -57,7 +56,7 @@ describe('GET /api/client/status', () => {
   });
 
   it('logs missed heartbeat lazily in prod', async () => {
-    (verifySession as any).mockResolvedValue(true);
+    vi.mocked(verifySession).mockResolvedValue(true);
     const staleTime = new Date(Date.now() - 60000).toISOString(); // 60s ago
     
     mockLocal.query.mockResolvedValueOnce({ _id: 's1', _creationTime: Date.now(), status: 'active' }); // session

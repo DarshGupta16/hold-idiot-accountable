@@ -2,8 +2,8 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 
 class MockConvexHttpClient {
   url: string;
-  options: any;
-  constructor(url: string, options: any) {
+  options: unknown;
+  constructor(url: string, options: unknown) {
     this.url = url;
     this.options = options;
   }
@@ -24,20 +24,20 @@ mock.module("@/lib/backend/config", () => ({
 
 describe("convex-client", () => {
   beforeEach(() => {
-    // @ts-ignore
+    // @ts-expect-error - require.cache is not strictly typed
     delete require.cache[require.resolve("@/lib/backend/convex")];
   });
 
   it("getLocalClient() returns a ConvexHttpClient with correct config", async () => {
     const { getLocalClient } = await import("@/lib/backend/convex");
-    const client = getLocalClient() as any;
+    const client = getLocalClient() as unknown as MockConvexHttpClient;
     expect(client.url).toBe("http://local-test");
     expect(client).toBeDefined();
   });
 
   it("getCloudClient() returns a client when cloud URL is set", async () => {
     const { getCloudClient } = await import("@/lib/backend/convex");
-    const client = getCloudClient() as any;
+    const client = getCloudClient() as unknown as MockConvexHttpClient;
     expect(client.url).toBe("http://cloud-test");
     expect(client).not.toBeNull();
   });

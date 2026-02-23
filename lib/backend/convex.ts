@@ -34,7 +34,7 @@ export function getLocalClient(): ConvexHttpClient {
     };
 
     localClient = new ConvexHttpClient(convexUrl, {
-      fetch: customFetch as any,
+      fetch: customFetch as typeof fetch,
     });
   }
   return localClient;
@@ -70,7 +70,7 @@ export function getCloudClient(): ConvexHttpClient | null {
     };
 
     cloudClient = new ConvexHttpClient(cloudUrl, {
-      fetch: customFetch as any,
+      fetch: customFetch as typeof fetch,
     });
   }
   return cloudClient;

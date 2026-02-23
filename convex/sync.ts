@@ -51,26 +51,36 @@ export const importAll = mutation({
     const sessionMap = new Map();
 
     // 1. Insert sessions first
-    for (const session of args.sessions) {
-      const { _id, _creationTime, ...data } = session;
+    for (const session of args.sessions as Record<string, unknown>[]) {
+      const data = { ...session };
+      delete data._id;
+      delete data._creationTime;
+      // @ts-expect-error - Insert expects specific table record
       const newId = await ctx.db.insert("studySessions", data);
-      sessionMap.set(_id, newId);
+      sessionMap.set(session._id as string, newId);
     }
 
     // 2. Insert logs with mapped session IDs
     for (const log of args.logs) {
-      const { _id, _creationTime, ...data } = log;
-      if (data.session && sessionMap.has(data.session)) {
-        data.session = sessionMap.get(data.session);
+      const data = { ...log } as Record<string, unknown>;
+      delete data._id;
+      delete data._creationTime;
+      
+      if (data.session && sessionMap.has(data.session as string)) {
+        data.session = sessionMap.get(data.session as string);
       } else {
         delete data.session;
       }
+      // @ts-expect-error - Insert expects specific table record
       await ctx.db.insert("logs", data);
     }
 
     // 3. Insert variables
     for (const variable of args.variables) {
-      const { _id, _creationTime, ...data } = variable;
+      const data = { ...variable } as Record<string, unknown>;
+      delete data._id;
+      delete data._creationTime;
+      // @ts-expect-error - Insert expects specific table record
       await ctx.db.insert("variables", data);
     }
   },

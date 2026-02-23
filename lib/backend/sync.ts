@@ -1,5 +1,8 @@
 import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
+import { ConvexHttpClient } from "convex/browser";
+
+type MutationRef = Parameters<ConvexHttpClient["mutation"]>[0];
 
 /**
  * On cold start, if local is empty, pull from cloud.
@@ -51,7 +54,7 @@ export async function bootstrapFromCloud() {
 export async function replicateToCloud(
   table: string,
   operation: string,
-  args: any,
+  args: Record<string, unknown>,
 ) {
   const cloud = getCloudClient();
   if (!cloud) return;
@@ -60,9 +63,9 @@ export async function replicateToCloud(
     // Map the operation to the correct API call
     // This assumes the API structure matches the table name and operation name
     // e.g., table="logs", operation="create" -> api.logs.create
-    const apiModule = (api as any)[table];
+    const apiModule = (api as Record<string, Record<string, unknown>>)[table];
     if (apiModule && apiModule[operation]) {
-      await cloud.mutation(apiModule[operation], args);
+      await cloud.mutation(apiModule[operation] as MutationRef, args);
       console.log(`[Sync] Replicated ${operation} to cloud for ${table}`);
     } else {
       console.warn(`[Sync] Unknown API for replication: ${table}.${operation}`);
@@ -135,17 +138,17 @@ export async function reconcile() {
 export async function replicatedMutation<
   T extends keyof typeof api,
   M extends keyof (typeof api)[T],
->(table: T, operation: M, args: any): Promise<any> {
+>(table: T, operation: M, args: unknown): Promise<unknown> {
   const local = getLocalClient();
-  const apiModule = (api as any)[table];
+  const apiModule = (api as Record<string, Record<string, unknown>>)[table];
   const mutation = apiModule[operation];
 
   // 1. Execute locally
-  const result = await local.mutation(mutation, args);
+  const result = await local.mutation(mutation as MutationRef, args);
 
   // 2. Replicate to cloud (fire-and-forget)
   // We don't await this to keep the local response fast
-  replicateToCloud(table as string, operation as string, args).catch((err) => {
+  replicateToCloud(table as string, operation as string, args as Record<string, unknown>).catch((err) => {
     console.error(`[Sync] Background replication failed for ${table as string}.${operation as string}:`, err);
   });
 

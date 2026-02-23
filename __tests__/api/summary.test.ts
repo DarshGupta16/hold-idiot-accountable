@@ -26,14 +26,14 @@ describe('POST /api/client/ai/summary', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   it('generates summary for latest session', async () => {
-    (verifySession as any).mockResolvedValue(true);
+    vi.mocked(verifySession).mockResolvedValue(true);
     mockLocal.query.mockResolvedValueOnce({ page: [{ _id: 's1', started_at: new Date().toISOString() }] }); // list
     mockLocal.query.mockResolvedValueOnce([]); // logs
-    (generateSessionSummary as any).mockResolvedValue({ summary_text: 'Done!' });
+    vi.mocked(generateSessionSummary).mockResolvedValue({ summary_text: 'Done!', status_label: 'FOCUSED' });
 
     const req = new NextRequest('http://localhost/api/client/ai/summary', { method: 'POST' });
     const res = await POST(req);

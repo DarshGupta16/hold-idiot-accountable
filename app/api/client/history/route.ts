@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 /**
  * Helper to map Convex document to existing frontend shape
  */
-function mapConvexDoc(doc: any) {
+function mapConvexDoc<T extends { _id: string; _creationTime: number }>(doc: T) {
   if (!doc) return null;
   const { _id, _creationTime, ...rest } = doc;
   return {

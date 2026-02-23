@@ -30,8 +30,8 @@ describe('sync', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
-    (getCloudClient as any).mockReturnValue(mockCloud);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
+    vi.mocked(getCloudClient).mockReturnValue(mockCloud as unknown as ReturnType<typeof getCloudClient>);
   });
 
   describe('bootstrapFromCloud', () => {
@@ -59,7 +59,7 @@ describe('sync', () => {
     });
 
     it('no-ops when cloud client is missing', async () => {
-      (getCloudClient as any).mockReturnValue(null);
+      vi.mocked(getCloudClient).mockReturnValue(null);
       await bootstrapFromCloud();
       expect(mockLocal.query).not.toHaveBeenCalled();
     });
@@ -72,7 +72,7 @@ describe('sync', () => {
     });
 
     it('no-ops when cloud client is missing', async () => {
-      (getCloudClient as any).mockReturnValue(null);
+      vi.mocked(getCloudClient).mockReturnValue(null);
       await replicateToCloud('logs', 'create', { foo: 'bar' });
       expect(mockCloud.mutation).not.toHaveBeenCalled();
     });

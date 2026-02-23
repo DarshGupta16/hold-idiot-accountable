@@ -23,11 +23,11 @@ describe('POST /api/client/acknowledge', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (getLocalClient as any).mockReturnValue(mockLocal);
+    vi.mocked(getLocalClient).mockReturnValue(mockLocal as unknown as ReturnType<typeof getLocalClient>);
   });
 
   it('updates unacknowledged logs', async () => {
-    (verifySession as any).mockResolvedValue(true);
+    vi.mocked(verifySession).mockResolvedValue(true);
     mockLocal.query.mockResolvedValue([
       { _id: 'l1', metadata: { foo: 'bar' } },
     ]);
