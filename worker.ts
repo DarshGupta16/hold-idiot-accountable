@@ -77,7 +77,16 @@ async function runReconciliation() {
     await reconcile();
   } catch (e) {
     console.error("[Worker] Reconciliation failed:", e);
+  } finally {
+    // Schedule next run after this one finishes
+    setTimeout(runReconciliation, RECONCILIATION_INTERVAL_MS);
   }
+}
+
+async function runHeartbeatCheck() {
+  await checkHeartbeat();
+  // Schedule next run after this one finishes (30s)
+  setTimeout(runHeartbeatCheck, 30 * 1000);
 }
 
 // Start Worker Sequence
@@ -87,14 +96,9 @@ async function startWorker() {
   // 1. Cold Start Bootstrap
   await bootstrapFromCloud();
 
-  // 2. Initial Heartbeat Check
-  await checkHeartbeat();
-
-  // 3. Heartbeat Check Loop (30s)
-  setInterval(checkHeartbeat, 30 * 1000);
-
-  // 4. Reconciliation Loop (5m)
-  setInterval(runReconciliation, RECONCILIATION_INTERVAL_MS);
+  // 2. Start Loops
+  runHeartbeatCheck();
+  runReconciliation();
   
   console.log("[Worker] Heartbeat Monitor and Reconciliation loops started.");
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { config } from "./config";
+import { config } from "@/lib/backend/config";
 import crypto from "crypto";
 
 /**

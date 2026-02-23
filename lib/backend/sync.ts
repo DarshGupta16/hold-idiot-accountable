@@ -1,5 +1,5 @@
-import { getLocalClient, getCloudClient } from "./convex";
-import { api } from "../../convex/_generated/api";
+import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
 
 /**
  * On cold start, if local is empty, pull from cloud.
@@ -127,4 +127,27 @@ export async function reconcile() {
   } catch (error) {
     console.error("[Sync] Error during reconciliation:", error);
   }
+}
+
+/**
+ * Orchestrates a local mutation followed by fire-and-forget cloud replication.
+ */
+export async function replicatedMutation<
+  T extends keyof typeof api,
+  M extends keyof (typeof api)[T],
+>(table: T, operation: M, args: any): Promise<any> {
+  const local = getLocalClient();
+  const apiModule = (api as any)[table];
+  const mutation = apiModule[operation];
+
+  // 1. Execute locally
+  const result = await local.mutation(mutation, args);
+
+  // 2. Replicate to cloud (fire-and-forget)
+  // We don't await this to keep the local response fast
+  replicateToCloud(table as string, operation as string, args).catch((err) => {
+    console.error(`[Sync] Background replication failed for ${table as string}.${operation as string}:`, err);
+  });
+
+  return result;
 }

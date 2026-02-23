@@ -1,6 +1,6 @@
-import { getLocalClient, getCloudClient } from "./convex";
-import { api } from "../../convex/_generated/api";
-import { replicateToCloud } from "./sync";
+import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
+import { replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import {
   EventType,
   SessionStartSchema,
@@ -8,16 +8,15 @@ import {
   BlocklistEventSchema,
   HeartbeatSchema,
   BlocklistEventType,
-} from "./types";
+} from "@/lib/backend/types";
 import { z } from "zod";
 import {
   ensureActiveSession,
   ensureNoActiveSession,
   getActiveSession,
-} from "./invariants";
+} from "@/lib/backend/invariants";
 import { formatDuration } from "@/lib/utils";
 import {
-  StudySession,
   Log,
   SessionStatus,
   TimelineEvent,
@@ -27,7 +26,6 @@ import {
 export async function processHeartbeat(
   payload: z.infer<typeof HeartbeatSchema>,
 ) {
-  const convex = getLocalClient();
   const serverNow = new Date().toISOString();
 
   console.log("[Heartbeat] Processing heartbeat at", serverNow);
@@ -38,12 +36,7 @@ export async function processHeartbeat(
     machine: payload.machine_id,
   };
 
-  await convex.mutation(api.variables.upsert, {
-    key: "lastHeartbeatAt",
-    value: heartbeatValue,
-  });
-
-  await replicateToCloud("variables", "upsert", {
+  await replicatedMutation("variables", "upsert", {
     key: "lastHeartbeatAt",
     value: heartbeatValue,
   });
@@ -53,7 +46,6 @@ export async function processSessionStart(
   payload: z.infer<typeof SessionStartSchema>,
 ) {
   await ensureNoActiveSession();
-  const convex = getLocalClient();
   const serverNow = new Date().toISOString();
 
   const sessionData = {
@@ -63,19 +55,18 @@ export async function processSessionStart(
     status: "active" as const,
   };
 
-  const sessionId = await convex.mutation(
-    api.studySessions.create,
+  const sessionId = await replicatedMutation(
+    "studySessions",
+    "create",
     sessionData,
   );
-  await replicateToCloud("studySessions", "create", sessionData);
 
   // Store the blocklist in variables
   const blocklistData = {
     key: "blocklist",
     value: payload.blocklist || [],
   };
-  await convex.mutation(api.variables.upsert, blocklistData);
-  await replicateToCloud("variables", "upsert", blocklistData);
+  await replicatedMutation("variables", "upsert", blocklistData);
 
   const logData = {
     type: "session_start" as const,
@@ -83,10 +74,15 @@ export async function processSessionStart(
     metadata: payload,
     session: sessionId,
   };
-  await convex.mutation(api.logs.create, logData);
+  
+  // Local log with sessionId
+  const local = getLocalClient();
+  await local.mutation(api.logs.create, logData);
 
-  // For cloud replication, remove session ID to avoid mismatch
-  await replicateToCloud("logs", "create", { ...logData, session: undefined });
+  // Replicate log to cloud (without ID to avoid mismatch)
+  replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
 }
 
 export async function processSessionStop(
@@ -115,8 +111,11 @@ export async function processSessionStop(
     },
     session: session._id,
   };
+  
   await convex.mutation(api.logs.create, logData);
-  await replicateToCloud("logs", "create", { ...logData, session: undefined });
+  replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
 
   // Build timeline from logs for this session
   const logs = await convex.query(api.logs.getBySessionAsc, {
@@ -161,11 +160,7 @@ export async function processSessionStop(
       session_id: session._id,
     };
 
-    await convex.mutation(api.variables.upsert, {
-      key: "summary",
-      value: variablePayload,
-    });
-    await replicateToCloud("variables", "upsert", {
+    await replicatedMutation("variables", "upsert", {
       key: "summary",
       value: variablePayload,
     });
@@ -229,6 +224,9 @@ export async function processBlocklistEvent(
     },
     session: activeSession ? activeSession._id : undefined,
   };
+  
   await convex.mutation(api.logs.create, logData);
-  await replicateToCloud("logs", "create", { ...logData, session: undefined });
+  replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
 }

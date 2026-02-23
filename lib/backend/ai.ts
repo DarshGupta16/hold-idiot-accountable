@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { config } from "./config";
+import { config } from "@/lib/backend/config";
 import { formatDuration } from "@/lib/utils";
 import { Log } from "@/lib/backend/schema";
 

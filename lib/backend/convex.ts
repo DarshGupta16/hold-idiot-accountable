@@ -1,5 +1,5 @@
 import { ConvexHttpClient } from "convex/browser";
-import { config } from "./config";
+import { config } from "@/lib/backend/config";
 
 let localClient: ConvexHttpClient | null = null;
 let cloudClient: ConvexHttpClient | null = null;

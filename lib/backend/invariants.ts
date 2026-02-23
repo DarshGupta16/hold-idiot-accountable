@@ -1,6 +1,6 @@
-import { getLocalClient } from "./convex";
-import { api } from "../../convex/_generated/api";
-import { StudySession } from "./schema";
+import { getLocalClient } from "@/lib/backend/convex";
+import { api } from "@/convex/_generated/api";
+import { StudySession } from "@/lib/backend/schema";
 
 export async function getActiveSession(): Promise<StudySession | null> {
   const convex = getLocalClient();
