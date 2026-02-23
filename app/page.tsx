@@ -57,11 +57,14 @@ export default function Home() {
 
     // Format display: countdown or overtime
     const displaySeconds = isOvertime ? overtimeSeconds : remainingSeconds;
-    const m = Math.floor(displaySeconds / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (displaySeconds % 60).toString().padStart(2, "0");
-    const display = isOvertime ? `+ ${m}:${s}` : `${m}:${s}`;
+    const h = Math.floor(displaySeconds / 3600);
+    const m = Math.floor((displaySeconds % 3600) / 60);
+    const s = displaySeconds % 60;
+
+    const hStr = h > 0 ? `${h}:` : "";
+    const mStr = m.toString().padStart(2, "0");
+    const sStr = s.toString().padStart(2, "0");
+    const display = isOvertime ? `+ ${hStr}${mStr}:${sStr}` : `${hStr}${mStr}:${sStr}`;
 
     // Format start/end times
     const startDate = new Date(start);
