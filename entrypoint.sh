@@ -85,7 +85,7 @@ log "Local deployment complete."
 # 5a. Bootstrap local DB from cloud (if local is empty and cloud is configured)
 if [ -n "$CONVEX_CLOUD_URL" ] && [ -n "$CONVEX_CLOUD_DEPLOY_KEY" ]; then
   log "Checking if local DB needs bootstrap from cloud..."
-  bun /app/bootstrap.js "$CONVEX_ADMIN_KEY" "$CONVEX_CLOUD_URL" "$CONVEX_CLOUD_DEPLOY_KEY" 2>&1 | while IFS= read -r line; do log "$line"; done
+  node /app/bootstrap.js "$CONVEX_ADMIN_KEY" "$CONVEX_CLOUD_URL" "$CONVEX_CLOUD_DEPLOY_KEY" 2>&1 | while IFS= read -r line; do log "$line"; done
   log "Bootstrap step done."
 fi
 
