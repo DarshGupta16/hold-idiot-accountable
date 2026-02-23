@@ -40,6 +40,14 @@ export async function processHeartbeat(
     key: "lastHeartbeatAt",
     value: heartbeatValue,
   });
+
+  // Asynchronously cleanup "test session"s older than 30 minutes
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  replicatedMutation("studySessions", "deleteTestSessions", {
+    olderThan: thirtyMinutesAgo,
+  }).catch((err) => {
+    console.error("[Cleanup] Test session cleanup failed:", err);
+  });
 }
 
 export async function processSessionStart(

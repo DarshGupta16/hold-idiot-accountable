@@ -94,3 +94,36 @@ export const count = query({
     return all.length;
   },
 });
+
+export const deleteTestSessions = mutation({
+  args: { olderThan: v.string() },
+  handler: async (ctx, args) => {
+    const threshold = new Date(args.olderThan).getTime();
+    const allSessions = await ctx.db.query("studySessions").collect();
+
+    const toDelete = allSessions.filter((s) => {
+      const isTest = s.subject.toLowerCase() === "test session";
+      const isOld = new Date(s.started_at).getTime() < threshold;
+      return isTest && isOld;
+    });
+
+    let deletedCount = 0;
+    for (const session of toDelete) {
+      // 1. Delete associated logs
+      const logs = await ctx.db
+        .query("logs")
+        .withIndex("by_session", (q) => q.eq("session", session._id))
+        .collect();
+
+      for (const log of logs) {
+        await ctx.db.delete(log._id);
+      }
+
+      // 2. Delete the session
+      await ctx.db.delete(session._id);
+      deletedCount++;
+    }
+
+    return deletedCount;
+  },
+});
