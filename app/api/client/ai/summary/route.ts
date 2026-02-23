@@ -36,11 +36,16 @@ export async function POST(req: NextRequest) {
     const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
 
     // 5. Generate Summary
+    const reason = session.end_note?.startsWith("Client reason: ") 
+      ? session.end_note.replace("Client reason: ", "") 
+      : session.end_note;
+
     const aiResult = await generateSessionSummary(logs, {
       subject: session.subject,
       status: session.status,
       plannedDuration: session.planned_duration_sec,
       actualDuration: actualDuration,
+      reason: reason,
     });
 
     const serverNow = new Date().toISOString();

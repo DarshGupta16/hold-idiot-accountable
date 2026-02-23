@@ -19,6 +19,7 @@ export async function generateSessionSummary(
     plannedDuration: number;
     actualDuration?: number;
     status: string;
+    reason?: string;
   },
 ): Promise<AIResult> {
   const logStream = logs
@@ -38,6 +39,7 @@ Context:
       ? formatDuration(Math.floor(sessionContext.actualDuration))
       : "Ongoing"
   }
+${sessionContext.reason ? `- End Reason provided by user: ${sessionContext.reason}` : ""}
 
 Session Logs:
 ${logStream}
@@ -50,8 +52,9 @@ Instructions:
      "status_label": "ONE OF: FOCUSED, DISTRACTED, MIXED"
    }
 3. 'summary_text' should be calm, non-judgmental, and truth-telling.
-4. When mentioning durations in summary_text, use human-readable format like "2hr 15min" or "20min" instead of seconds.
-5. Do not include markdown formatting like \`\`\`json. Just the raw JSON.
+4. If a reason for ending the session was provided, incorporate that reason into the 'summary_text' so the user sees their own justification reflected back to them.
+5. When mentioning durations in summary_text, use human-readable format like "2hr 15min" or "20min" instead of seconds.
+6. Do not include markdown formatting like \`\`\`json. Just the raw JSON.
 `;
 
   try {

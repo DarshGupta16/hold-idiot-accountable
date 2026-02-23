@@ -148,6 +148,7 @@ export async function processSessionStop(
       status: newStatus,
       plannedDuration: session.planned_duration_sec,
       actualDuration: elapsedSeconds,
+      reason: payload.reason,
     });
 
     summaryText = aiResult.summary_text;
