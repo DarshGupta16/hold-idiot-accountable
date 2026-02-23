@@ -44,7 +44,6 @@ cookies.txt
 .convex/
 
 # scripts
-/scripts
 setup_test_state.ts
 debug_sessions.ts
 
