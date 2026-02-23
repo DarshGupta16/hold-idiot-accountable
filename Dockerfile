@@ -2,18 +2,13 @@
 FROM ghcr.io/get-convex/convex-backend:latest AS convex
 
 # Stage 2: Builder
-FROM node:20 AS builder
+FROM oven/bun:debian AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
 
-# Remove dotenv from worker.ts for production
-RUN sed -i '/import dotenv from "dotenv";/d' worker.ts && \
-    sed -i '/dotenv.config/d' worker.ts
-
 # Generate convex/_generated/api.ts inline
-# (Render strips this directory from the build context despite it being in git)
 RUN mkdir -p convex/_generated && \
     echo 'import { anyApi } from "convex/server"; export const api = anyApi;' > convex/_generated/api.ts
 
@@ -21,11 +16,11 @@ RUN mkdir -p convex/_generated && \
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CONVEX_ADMIN_KEY="dummy_key_for_build"
 ENV CONVEX_URL="http://127.0.0.1:3210"
-RUN npm run build
+RUN bun run build
 
-# Bundle worker.ts and bootstrap.ts
-RUN npx esbuild worker.ts --bundle --platform=node --outfile=worker.js --alias:@=.
-RUN npx esbuild bootstrap.ts --bundle --platform=node --outfile=bootstrap.js --alias:@=.
+# Bundle worker.ts and bootstrap.ts using Bun (Node target for production stability)
+RUN bun build worker.ts --target=node --outfile=worker.js
+RUN bun build bootstrap.ts --target=node --outfile=bootstrap.js
 
 # Stage 3: Runner
 FROM node:20-trixie-slim AS runner
@@ -36,7 +31,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Install system dependencies
+# Install system dependencies (Back to stable Node setup)
 RUN apt-get update && apt-get install -y \
     supervisor \
     ca-certificates \
@@ -44,7 +39,7 @@ RUN apt-get update && apt-get install -y \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Convex backend binary and ALL helper files (scripts + binaries like generate_key)
+# Copy Convex backend binary and ALL helper files
 COPY --from=convex /convex/ /app/convex-tools/
 RUN cp /app/convex-tools/convex-local-backend /app/convex-local-backend && \
     cp /app/convex-tools/*.sh /app/ 2>/dev/null || true && \
@@ -58,7 +53,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy worker and convex source (for deployment)
+# Copy worker and convex source
 COPY --from=builder /app/worker.js ./worker.js
 COPY --from=builder /app/bootstrap.js ./bootstrap.js
 COPY --from=builder /app/convex ./convex
@@ -66,13 +61,12 @@ COPY --from=builder /app/supervisord.conf /etc/supervisord.conf
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-# Install convex globally (CLI) + symlink into project node_modules (for esbuild bundler)
+# Install convex globally via npm (exactly as in main)
 RUN npm install -g convex && \
     mkdir -p /app/node_modules && \
     ln -s /usr/local/lib/node_modules/convex /app/node_modules/convex
 
-# Set up non-root user (node is already created in base image)
-# /convex is needed by generate_admin_key.sh
+# Set up non-root user
 RUN mkdir -p /convex && chown -R node:node /app /convex
 USER node
 

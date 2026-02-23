@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
 import { config } from "@/lib/backend/config";
 import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
