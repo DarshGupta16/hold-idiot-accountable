@@ -98,9 +98,9 @@ export async function GET(req: NextRequest) {
 
   // 5. Final Assembly
   return NextResponse.json({
-    active_session: mapConvexDoc(activeSessionRaw),
-    active_break: activeBreak,
-    last_heartbeat: heartbeatValue,
+    activeSession: mapConvexDoc(activeSessionRaw),
+    activeBreak: activeBreak,
+    lastHeartbeat: heartbeatValue,
     summary,
     blocklist: blocklistVar?.value || [],
     logs: (rawLogs as Log[]).map(mapConvexDoc),
