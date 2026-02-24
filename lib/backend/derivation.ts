@@ -183,12 +183,14 @@ export async function processBreakStop(
     console.error("[Sync] Background log replication failed:", err);
   });
 
-  // Transition to next session
-  await processSessionStart({
-    event_type: EventType.SESSION_START,
-    timestamp: serverNow.toISOString(),
-    ...breakVal.next_session,
-  }, { isFromBreak: true });
+  // Transition to next session ONLY if automatic
+  if (isAutomatic) {
+    await processSessionStart({
+      event_type: EventType.SESSION_START,
+      timestamp: serverNow.toISOString(),
+      ...breakVal.next_session,
+    }, { isFromBreak: true });
+  }
 
   // Cleanup break variable
   await replicatedMutation("variables", "remove", { key: "break" });
