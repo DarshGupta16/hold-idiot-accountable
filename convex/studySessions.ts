@@ -99,6 +99,40 @@ export const deleteTestSessions = mutation({
   args: { olderThan: v.string() },
   handler: async (ctx, args) => {
     const threshold = new Date(args.olderThan).getTime();
+
+    // 1. Delete break logs associated with test sessions
+    const breakStartLogs = await ctx.db
+      .query("logs")
+      .withIndex("by_type", (q) => q.eq("type", "break_start"))
+      .collect();
+
+    for (const log of breakStartLogs) {
+      const subject = log.metadata?.next_session?.subject?.toLowerCase() || "";
+      const isTest = subject.includes("test") && subject.includes("session");
+      const isOld = log._creationTime < threshold;
+
+      if (isTest && isOld) {
+        await ctx.db.delete(log._id);
+        // Find corresponding break_end logs within a reasonable window of the duration
+        const durationSec = log.metadata?.duration_sec || 0;
+        const breakEndLogs = await ctx.db
+          .query("logs")
+          .withIndex("by_type", (q) => q.eq("type", "break_end"))
+          .filter((q) =>
+            q.and(
+              q.gte(q.field("_creationTime"), log._creationTime),
+              q.lte(q.field("_creationTime"), log._creationTime + (durationSec + 120) * 1000)
+            )
+          )
+          .collect();
+
+        for (const endLog of breakEndLogs) {
+          await ctx.db.delete(endLog._id);
+        }
+      }
+    }
+
+    // 2. Delete the sessions themselves
     const allSessions = await ctx.db.query("studySessions").collect();
 
     const toDelete = allSessions.filter((s) => {
