@@ -70,7 +70,9 @@ export async function processSessionStart(
   options?: { isFromBreak?: boolean }
 ) {
   await ensureNoActiveSession();
-  await ensureNoActiveBreak();
+  if (!options?.isFromBreak) {
+    await ensureNoActiveBreak();
+  }
   
   const serverNow = new Date().toISOString();
 

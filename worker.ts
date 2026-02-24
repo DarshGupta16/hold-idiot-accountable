@@ -2,6 +2,9 @@ import { config } from "@/lib/backend/config";
 import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { bootstrapFromCloud, reconcile, replicateToCloud } from "@/lib/backend/sync";
+import { processBreakStop } from "@/lib/backend/derivation";
+import { EventType } from "@/lib/backend/types";
+import { BreakValue } from "@/lib/backend/schema";
 
 // Constants
 const HEARTBEAT_THRESHOLD_SECONDS = 33;
@@ -11,6 +14,39 @@ const RECONCILIATION_INTERVAL_MS = 300000; // 5 minutes
 if (!config.convexUrl || !config.convexAdminKey) {
   console.error("[Worker] Missing CONVEX credentials in environment.");
   process.exit(1);
+}
+
+/**
+ * Checks for expired breaks and transitions to the next session.
+ */
+async function checkBreaks() {
+  try {
+    const convex = getLocalClient();
+    const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+
+    if (!breakVar) return;
+
+    const breakVal = breakVar.value as BreakValue;
+    const startTime = new Date(breakVal.started_at).getTime();
+    const now = Date.now();
+    const elapsedSeconds = (now - startTime) / 1000;
+
+    if (elapsedSeconds >= breakVal.duration_sec) {
+      console.log(
+        `[Worker] Break expired (${elapsedSeconds.toFixed(1)}s elapsed). Starting next session: ${breakVal.next_session.subject}`,
+      );
+      await processBreakStop({
+        event_type: EventType.BREAK_STOP,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (e: unknown) {
+    // Ignore invariant violations (likely already processed by client)
+    if (e instanceof Error && e.message.includes("Invariant")) {
+      return;
+    }
+    console.error("[Worker] Break Check Error:", e);
+  }
 }
 
 /**
@@ -89,6 +125,12 @@ async function runHeartbeatCheck() {
   setTimeout(runHeartbeatCheck, 30 * 1000);
 }
 
+async function runBreakCheck() {
+  await checkBreaks();
+  // Check more frequently for breaks (every 5 seconds)
+  setTimeout(runBreakCheck, 5 * 1000);
+}
+
 // Start Worker Sequence
 async function startWorker() {
   console.log("[Worker] Initializing HIA Worker...");
@@ -98,9 +140,10 @@ async function startWorker() {
 
   // 2. Start Loops
   runHeartbeatCheck();
+  runBreakCheck();
   runReconciliation();
   
-  console.log("[Worker] Heartbeat Monitor and Reconciliation loops started.");
+  console.log("[Worker] Heartbeat Monitor, Break Monitor and Reconciliation loops started.");
 }
 
 startWorker();

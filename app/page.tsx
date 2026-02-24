@@ -89,6 +89,14 @@ export default function Home() {
     return "IDLE";
   }, [data, isLoading]);
 
+  // Automatic transition for breaks
+  useEffect(() => {
+    if (status === "BREAK" && timerData.isOvertime) {
+      console.log("[Client] Break timer expired. Refreshing status for transition...");
+      mutate();
+    }
+  }, [status, timerData.isOvertime, mutate]);
+
   // Map Logs to Timeline Events
   const logs = data?.logs;
 

@@ -4,7 +4,9 @@ import { api } from "@/convex/_generated/api";
 import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
 import { config } from "@/lib/backend/config";
 import { replicateToCloud } from "@/lib/backend/sync";
-import { SummaryValue, Log } from "@/lib/backend/schema";
+import { SummaryValue, Log, BreakValue } from "@/lib/backend/schema";
+import { processBreakStop } from "@/lib/backend/derivation";
+import { EventType } from "@/lib/backend/types";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +53,38 @@ export async function GET(req: NextRequest) {
     convex.query(api.variables.getByKey, { key: "break" }),
   ]);
 
-  const activeSession = mapConvexDoc(activeSessionRaw);
+  let activeSession = mapConvexDoc(activeSessionRaw);
   const lastHeartbeat = heartbeatVar?.value;
   const summary = summaryVar?.value as SummaryValue | undefined;
   const blocklist = blocklistVar?.value || [];
-  const activeBreak = breakVar?.value;
+  let activeBreak = breakVar?.value as BreakValue | null;
+
+  // 2.5 Lazy Break Expiry
+  if (activeBreak && !activeSession) {
+    const startTime = new Date(activeBreak.started_at).getTime();
+    const now = Date.now();
+    const elapsedSeconds = (now - startTime) / 1000;
+
+    if (elapsedSeconds >= activeBreak.duration_sec) {
+      console.log(`[Status] Break expired (${elapsedSeconds.toFixed(1)}s elapsed). Lazy stopping...`);
+      try {
+        await processBreakStop({
+          event_type: EventType.BREAK_STOP,
+          timestamp: new Date().toISOString(),
+        });
+        
+        // Re-fetch core data after transition
+        const [newSessionRaw, newBreakVar] = await Promise.all([
+          convex.query(api.studySessions.getActive),
+          convex.query(api.variables.getByKey, { key: "break" }),
+        ]);
+        activeSession = mapConvexDoc(newSessionRaw);
+        activeBreak = newBreakVar?.value as BreakValue | null;
+      } catch (e) {
+        console.error("Failed to lazy stop break:", e);
+      }
+    }
+  }
 
   // 3. Fetch Logs
   let logs: unknown[] = [];
