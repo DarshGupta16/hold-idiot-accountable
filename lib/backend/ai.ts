@@ -22,6 +22,14 @@ export async function generateSessionSummary(
     reason?: string;
   },
 ): Promise<AIResult> {
+  const subjectLower = sessionContext.subject.toLowerCase();
+  if (subjectLower.includes("test") && subjectLower.includes("session")) {
+    return {
+      summary_text: "No summary is generated for test sessions.",
+      status_label: "FOCUSED",
+    };
+  }
+
   const logStream = logs
     .map((l) => `[${l.created_at}] ${l.type.toUpperCase()}: ${l.message}`)
     .join("\n");

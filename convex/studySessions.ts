@@ -102,7 +102,8 @@ export const deleteTestSessions = mutation({
     const allSessions = await ctx.db.query("studySessions").collect();
 
     const toDelete = allSessions.filter((s) => {
-      const isTest = s.subject.toLowerCase() === "test session";
+      const subjectLower = s.subject.toLowerCase();
+      const isTest = subjectLower.includes("test") && subjectLower.includes("session");
       const isOld = new Date(s.started_at).getTime() < threshold;
       return isTest && isOld;
     });
