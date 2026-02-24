@@ -16,7 +16,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Home() {
   const { data, isLoading, mutate } = useSWR("/api/client/status", fetcher, {
-    refreshInterval: 5000,
+    refreshInterval: 3000, // Slightly more aggressive for better responsiveness
   });
 
   // Client-side duration ticker
@@ -133,6 +133,7 @@ export default function Home() {
       <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
         status={status === "REFLECTION" ? "IDLE" : status}
+        isReflection={status === "REFLECTION"}
         subject={data?.activeSession?.subject || data?.activeBreak?.next_session?.subject || data?.summary?.subject}
         duration={timerData.display}
         progressPercent={timerData.progressPercent}
@@ -157,7 +158,7 @@ export default function Home() {
         </div>
       )}
 
-      {status === "IDLE" && !isLoading && (
+      {status === "IDLE" && !isLoading && !data?.summary && (
         <div className="flex justify-center items-center h-48 opacity-50 animate-in fade-in duration-1000">
           <p className="text-sm font-mono tracking-widest uppercase text-stone-400">
             System Standby

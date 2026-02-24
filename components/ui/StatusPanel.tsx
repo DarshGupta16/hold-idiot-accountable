@@ -10,6 +10,7 @@ interface StatusPanelProps {
   startTime?: string;
   endTime?: string;
   isOvertime?: boolean;
+  isReflection?: boolean;
 }
 
 export function StatusPanel({
@@ -20,6 +21,7 @@ export function StatusPanel({
   startTime,
   endTime,
   isOvertime = false,
+  isReflection = false,
 }: StatusPanelProps) {
   const isFocusing = status === "FOCUSING";
   const isBreach = status === "BREACH";
@@ -32,7 +34,7 @@ export function StatusPanel({
         <div
           className={cn(
             "w-2 h-2 rounded-full transition-colors duration-500",
-            (isFocusing || isBreak) ? "bg-emerald-500 animate-pulse" : "bg-stone-400",
+            (isFocusing || isBreak) ? "bg-emerald-500 animate-pulse" : (isReflection ? "bg-amber-400" : "bg-stone-400"),
           )}
         />
       </div>
@@ -43,11 +45,12 @@ export function StatusPanel({
             "text-6xl sm:text-7xl font-bold tracking-wide font-[family-name:var(--font-montserrat)]",
             isFocusing && "text-stone-900 dark:text-stone-50",
             isBreak && "text-indigo-600 dark:text-indigo-400",
-            status === "IDLE" && "text-stone-400 dark:text-stone-600",
+            (status === "IDLE" || isReflection) && "text-stone-400 dark:text-stone-600",
+            isReflection && "text-amber-600/60 dark:text-amber-400/60",
             isBreach && "text-red-800/80 dark:text-red-400/80",
           )}
         >
-          {status === "BREAK" ? "ON BREAK" : status}
+          {isReflection ? "COMPLETED" : (status === "BREAK" ? "ON BREAK" : status)}
         </h1>
         {subject && (
           <p className="text-xl text-stone-500 font-medium tracking-wide">

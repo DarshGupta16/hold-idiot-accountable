@@ -192,10 +192,9 @@ export async function processBreakStop(
     }, { isFromBreak: true });
   }
 
-  // Cleanup break variable
-  await replicatedMutation("variables", "remove", { key: "break" });
-
   // If premature (not automatic), update summary to show the reason
+  // We do this BEFORE removing the break variable to ensure the client
+  // always sees a valid state (either BREAK or REFLECTION)
   if (!isAutomatic) {
     const summaryPayload = {
       summary_text: `The previous break was stopped prematurely. Reason: ${reason}`,
@@ -210,6 +209,9 @@ export async function processBreakStop(
       value: summaryPayload,
     });
   }
+
+  // Cleanup break variable
+  await replicatedMutation("variables", "remove", { key: "break" });
 }
 
 export async function processBreakSkip(

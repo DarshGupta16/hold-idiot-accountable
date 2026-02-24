@@ -54,9 +54,9 @@ export async function GET(req: NextRequest) {
   ]);
 
   let activeSession = mapConvexDoc(activeSessionRaw);
-  const lastHeartbeat = heartbeatVar?.value;
-  const summary = summaryVar?.value as SummaryValue | undefined;
-  const blocklist = blocklistVar?.value || [];
+  let lastHeartbeat = heartbeatVar?.value;
+  let summary = summaryVar?.value as SummaryValue | undefined;
+  let blocklist = blocklistVar?.value || [];
   let activeBreak = breakVar?.value as BreakValue | null;
 
   // 2.5 Lazy Break Expiry
@@ -73,12 +73,25 @@ export async function GET(req: NextRequest) {
           timestamp: new Date().toISOString(),
         });
         
-        // Re-fetch core data after transition
-        const [newSessionRaw, newBreakVar] = await Promise.all([
+        // Re-fetch EVERYTHING after transition to ensure consistency
+        const [
+          newSessionRaw,
+          newHeartbeatVar,
+          newSummaryVar,
+          newBlocklistVar,
+          newBreakVar,
+        ] = await Promise.all([
           convex.query(api.studySessions.getActive),
+          convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
+          convex.query(api.variables.getByKey, { key: "summary" }),
+          convex.query(api.variables.getByKey, { key: "blocklist" }),
           convex.query(api.variables.getByKey, { key: "break" }),
         ]);
+
         activeSession = mapConvexDoc(newSessionRaw);
+        lastHeartbeat = newHeartbeatVar?.value;
+        summary = newSummaryVar?.value as SummaryValue | undefined;
+        blocklist = newBlocklistVar?.value || [];
         activeBreak = newBreakVar?.value as BreakValue | null;
       } catch (e) {
         console.error("Failed to lazy stop break:", e);
@@ -88,11 +101,15 @@ export async function GET(req: NextRequest) {
 
   // 3. Fetch Logs
   let logs: unknown[] = [];
-  const sessionId = activeSession?.id || summary?.session_id;
+  const sessionId = activeSession?.id || (summary?.session_id !== "break-system" ? summary?.session_id : null);
+  
   if (sessionId) {
     const rawLogs = await convex.query(api.logs.getBySession, { sessionId });
     logs = rawLogs.map((l: Log) => mapConvexDoc(l));
-  } else if (activeBreak) {
+  } 
+  
+  // Fallback for breaks or system reflections
+  if (logs.length === 0) {
     const rawLogs = await convex.query(api.logs.listRecent, { limit: 20 });
     logs = rawLogs.map((l: Log) => mapConvexDoc(l));
   }
