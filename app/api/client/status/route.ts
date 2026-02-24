@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
             type: "missed_heartbeat" as const,
             message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
             metadata,
-            session: activeSession.id,
+            session: activeSession?.id,
           };
           const newLogRaw = await convex.mutation(api.logs.create, logData);
           await replicateToCloud("logs", "create", { ...logData, session: undefined });
