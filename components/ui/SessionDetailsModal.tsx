@@ -25,24 +25,32 @@ export function SessionDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/40 backdrop-blur-md p-4 animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl rounded-lg max-w-md w-full max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl rounded-sm max-w-md w-full max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Accent Line */}
+        <div className={cn(
+          "h-1 w-full",
+          session.status === "aborted" ? "bg-red-500" : (session.status === "active" ? "bg-emerald-500" : "bg-stone-400 dark:bg-stone-700")
+        )} />
+
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-stone-100 dark:border-stone-800">
+        <div className="flex items-start justify-between p-6 border-b border-stone-100 dark:border-stone-800/60 bg-stone-50/50 dark:bg-stone-900/50">
           <div className="min-w-0 flex-1 pr-4">
-            <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50 font-[family-name:var(--font-montserrat)]">
+            <h2 className="text-xl font-bold text-stone-900 dark:text-stone-50 tracking-tight font-[family-name:var(--font-montserrat)]">
               {session.subject}
             </h2>
-            <p className="text-xs text-stone-400 font-mono mt-1">{dateStr}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest font-mono">Archive // {dateStr}</span>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            className="p-1.5 rounded-sm text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors border border-transparent hover:border-stone-200 dark:hover:border-stone-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -232,19 +240,19 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
       {/* Node */}
       <div
         className={cn(
-          "absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-stone-900",
-          event.type === "START" && "border-stone-400",
+          "absolute -left-[21px] top-1.5 w-2 h-2 rounded-full border bg-white dark:bg-stone-950",
+          event.type === "START" && "border-stone-400 bg-stone-400",
           event.type === "END" && "border-stone-400",
           event.type === "WARNING" &&
-            "border-amber-500/60 bg-amber-50 dark:bg-amber-950/30",
+            "border-amber-500/50 bg-amber-500/20 rounded-sm",
           event.type === "BREACH" &&
-            "border-red-500/60 bg-red-50 dark:bg-red-950/30",
-          event.type === "INFO" && "border-stone-300 w-2 h-2",
+            "border-red-500/50 bg-red-500/20 rounded-sm",
+          event.type === "INFO" && "border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 w-1.5 h-1.5",
         )}
       />
 
       <div className="flex items-baseline gap-3">
-        <span className="font-mono text-xs text-stone-400 shrink-0">
+        <span className="font-mono text-[10px] text-stone-400 shrink-0 font-bold uppercase">
           {(() => {
             const d = new Date(event.time);
             return isNaN(d.getTime())
@@ -258,11 +266,11 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
         </span>
         <span
           className={cn(
-            "text-sm",
+            "text-sm tracking-tight",
             event.type === "WARNING" &&
-              "text-amber-700 dark:text-amber-500",
+              "text-amber-700 dark:text-amber-400 font-medium",
             event.type === "BREACH" &&
-              "text-red-700 dark:text-red-500",
+              "text-red-700 dark:text-red-400 font-medium",
             (event.type === "INFO" ||
               event.type === "START" ||
               event.type === "END") &&

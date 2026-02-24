@@ -8,10 +8,6 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
 
-# Generate convex/_generated/api.ts inline
-RUN mkdir -p convex/_generated && \
-    echo 'import { anyApi } from "convex/server"; export const api = anyApi;' > convex/_generated/api.ts
-
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CONVEX_ADMIN_KEY="dummy_key_for_build"
