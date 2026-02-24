@@ -13,6 +13,7 @@ export type LogType =
   | "session_end"
   | "break_start"
   | "break_end"
+  | "break_skip"
   | "blocklist_change"
   | "warn"
   | "breach"

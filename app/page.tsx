@@ -110,6 +110,7 @@ export default function Home() {
       if (log.type === "session_end") type = "END";
       if (log.type === "break_start") type = "START";
       if (log.type === "break_end") type = "END";
+      if (log.type === "break_skip") type = "END";
       if (log.type === "breach") type = "BREACH";
       if (log.type === "warn") type = "WARNING";
 

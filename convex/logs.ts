@@ -51,6 +51,7 @@ export const create = mutation({
       v.literal("session_end"),
       v.literal("break_start"),
       v.literal("break_end"),
+      v.literal("break_skip"),
       v.literal("blocklist_change"),
       v.literal("warn"),
       v.literal("breach"),

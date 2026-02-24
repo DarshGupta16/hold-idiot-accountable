@@ -8,6 +8,7 @@ import {
   HeartbeatSchema,
   BreakStartSchema,
   BreakStopSchema,
+  BreakSkipSchema,
   BlocklistEventType,
   EventType,
 } from "@/lib/backend/types";
@@ -207,6 +208,42 @@ export async function processBreakStop(
       value: summaryPayload,
     });
   }
+}
+
+export async function processBreakSkip(
+  payload: z.infer<typeof BreakSkipSchema>,
+) {
+  const convex = getLocalClient();
+  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  if (!breakVar) {
+    throw new Error("Invariant Violation: No active break found to skip.");
+  }
+
+  const breakVal = breakVar.value as BreakValue;
+  const serverNow = new Date();
+
+  const logData = {
+    type: "break_skip" as const,
+    message: `Break skipped. Starting next session: ${breakVal.next_session.subject}`,
+    metadata: {
+      ...payload,
+    },
+  };
+
+  await convex.mutation(api.logs.create, logData);
+  replicateToCloud("logs", "create", logData).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
+
+  // Transition to next session immediately
+  await processSessionStart({
+    event_type: EventType.SESSION_START,
+    timestamp: serverNow.toISOString(),
+    ...breakVal.next_session,
+  }, { isFromBreak: true });
+
+  // Cleanup break variable
+  await replicatedMutation("variables", "remove", { key: "break" });
 }
 
 export async function processSessionStop(

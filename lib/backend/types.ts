@@ -24,6 +24,7 @@ export enum EventType {
   SESSION_STOP = "SESSION_STOP",
   BREAK_START = "BREAK_START",
   BREAK_STOP = "BREAK_STOP",
+  BREAK_SKIP = "BREAK_SKIP",
   BLOCKLIST_EVENT = "BLOCKLIST_EVENT",
 }
 
@@ -77,6 +78,11 @@ export const BreakStopSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const BreakSkipSchema = z.object({
+  event_type: z.literal(EventType.BREAK_SKIP),
+  timestamp: z.string().datetime(),
+});
+
 export const BlocklistEventSchema = z.object({
   event_type: z.literal(EventType.BLOCKLIST_EVENT),
   timestamp: z.string().datetime(),
@@ -91,6 +97,7 @@ export const WebhookEventSchema = z.union([
   SessionStopSchema,
   BreakStartSchema,
   BreakStopSchema,
+  BreakSkipSchema,
   BlocklistEventSchema,
 ]);
 
