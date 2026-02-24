@@ -2,23 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
-import { config } from "@/lib/backend/config";
-import { replicateToCloud } from "@/lib/backend/sync";
-import { SummaryValue, Log, BreakValue } from "@/lib/backend/schema";
-import { processBreakStop } from "@/lib/backend/derivation";
-import { EventType } from "@/lib/backend/types";
+import { SummaryValue, Log, BreakValue, StudySession, HeartbeatValue } from "@/lib/backend/schema";
+import { reconcileLazyState } from "@/lib/backend/derivation";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Helper to map Convex document to existing frontend shape
  */
-function mapConvexDoc<T extends { _id: string; _creationTime: number }>(doc: T | null) {
+function mapConvexDoc<T extends { _id: any; _creationTime: number }>(doc: T | null) {
   if (!doc) return null;
   const { _id, _creationTime, ...rest } = doc;
   return {
     ...rest,
-    id: _id,
+    id: String(_id),
     created_at: new Date(_creationTime).toISOString(),
   };
 }
@@ -38,127 +35,74 @@ export async function GET(req: NextRequest) {
 
   const convex = getLocalClient();
 
-  // 2. Fetch Core Data
-  const [
+  // 2. Initial Fetch
+  let [
     activeSessionRaw,
     heartbeatVar,
     summaryVar,
     blocklistVar,
     breakVar,
   ] = await Promise.all([
-    convex.query(api.studySessions.getActive),
+    convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
     convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
     convex.query(api.variables.getByKey, { key: "summary" }),
     convex.query(api.variables.getByKey, { key: "blocklist" }),
     convex.query(api.variables.getByKey, { key: "break" }),
   ]);
 
-  let activeSession = mapConvexDoc(activeSessionRaw);
-  let lastHeartbeat = heartbeatVar?.value;
+  let heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
   let summary = summaryVar?.value as SummaryValue | undefined;
-  let blocklist = blocklistVar?.value || [];
   let activeBreak = breakVar?.value as BreakValue | null;
 
-  // 2.5 Lazy Break Expiry
-  if (activeBreak && !activeSession) {
-    const startTime = new Date(activeBreak.started_at).getTime();
-    const now = Date.now();
-    const elapsedSeconds = (now - startTime) / 1000;
-
-    if (elapsedSeconds >= activeBreak.duration_sec) {
-      console.log(`[Status] Break expired (${elapsedSeconds.toFixed(1)}s elapsed). Lazy stopping...`);
-      try {
-        await processBreakStop({
-          event_type: EventType.BREAK_STOP,
-          timestamp: new Date().toISOString(),
-        });
-        
-        // Re-fetch EVERYTHING after transition to ensure consistency
-        const [
-          newSessionRaw,
-          newHeartbeatVar,
-          newSummaryVar,
-          newBlocklistVar,
-          newBreakVar,
-        ] = await Promise.all([
-          convex.query(api.studySessions.getActive),
-          convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
-          convex.query(api.variables.getByKey, { key: "summary" }),
-          convex.query(api.variables.getByKey, { key: "blocklist" }),
-          convex.query(api.variables.getByKey, { key: "break" }),
-        ]);
-
-        activeSession = mapConvexDoc(newSessionRaw);
-        lastHeartbeat = newHeartbeatVar?.value;
-        summary = newSummaryVar?.value as SummaryValue | undefined;
-        blocklist = newBlocklistVar?.value || [];
-        activeBreak = newBreakVar?.value as BreakValue | null;
-      } catch (e) {
-        console.error("Failed to lazy stop break:", e);
-      }
-    }
-  }
-
-  // 3. Fetch Logs
-  let logs: unknown[] = [];
-  const sessionId = activeSession?.id || (summary?.session_id !== "break-system" ? summary?.session_id : null);
+  // 3. Fetch Initial Logs (for reconciliation check)
+  const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
+  let rawLogs = sessionId 
+    ? await convex.query(api.logs.getBySession, { sessionId })
+    : await convex.query(api.logs.listRecent, { limit: 20 });
   
-  if (sessionId) {
-    const rawLogs = await convex.query(api.logs.getBySession, { sessionId });
-    logs = rawLogs.map((l: Log) => mapConvexDoc(l));
-  } 
-  
-  // Fallback for breaks or system reflections
-  if (logs.length === 0) {
-    const rawLogs = await convex.query(api.logs.listRecent, { limit: 20 });
-    logs = rawLogs.map((l: Log) => mapConvexDoc(l));
-  }
+  const typedLogs = rawLogs as Log[];
 
-  // 4. Lazy Watchdog
-  if (config.isProd && lastHeartbeat?.timestamp && (activeSession || activeBreak)) {
-    const hbTime = new Date(lastHeartbeat.timestamp).getTime();
-    const nowTime = Date.now();
-    const diffSeconds = (nowTime - hbTime) / 1000;
-    const diffMinutes = diffSeconds / 60;
-
-    if (diffSeconds > 33) {
-      const existingMissed = (logs as { type: string; metadata?: { acknowledged?: boolean } }[]).find(
-        (l) => l.type === "missed_heartbeat" && l.metadata?.acknowledged !== true
-      );
-
-      if (!existingMissed) {
-        try {
-          const metadata = {
-            last_seen: lastHeartbeat.timestamp,
-            gap_minutes: diffMinutes,
-            acknowledged: false,
-          };
-          const logData = {
-            type: "missed_heartbeat" as const,
-            message: `MISSED HEARTBEAT: Last heard ${Math.floor(diffMinutes)}m ago.`,
-            metadata,
-            session: activeSession?.id,
-          };
-          const newLogRaw = await convex.mutation(api.logs.create, logData);
-          await replicateToCloud("logs", "create", { ...logData, session: undefined });
-          
-          // Re-fetch or manually add
-          const newLog = mapConvexDoc({ ...logData, _id: newLogRaw, _creationTime: Date.now() });
-          logs.unshift(newLog);
-        } catch (e) {
-          console.error("Failed to log missed heartbeat:", e);
-        }
-      }
-    }
-  }
-
-  return NextResponse.json({
-    activeSession,
+  // 4. Lazy Reconciliation
+  const stateChanged = await reconcileLazyState({
+    activeSession: activeSessionRaw,
     activeBreak,
-    lastHeartbeat,
+    lastHeartbeat: heartbeatValue,
+    recentLogs: typedLogs,
+  });
+
+  if (stateChanged) {
+    // Re-fetch EVERYTHING if state changed to ensure consistency
+    [
+      activeSessionRaw,
+      heartbeatVar,
+      summaryVar,
+      blocklistVar,
+      breakVar,
+    ] = await Promise.all([
+      convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
+      convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
+      convex.query(api.variables.getByKey, { key: "summary" }),
+      convex.query(api.variables.getByKey, { key: "blocklist" }),
+      convex.query(api.variables.getByKey, { key: "break" }),
+    ]);
+
+    heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
+    summary = summaryVar?.value as SummaryValue | undefined;
+    activeBreak = breakVar?.value as BreakValue | null;
+    
+    const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
+    rawLogs = newSessionId 
+      ? await convex.query(api.logs.getBySession, { sessionId: newSessionId })
+      : await convex.query(api.logs.listRecent, { limit: 20 });
+  }
+
+  // 5. Final Assembly
+  return NextResponse.json({
+    active_session: mapConvexDoc(activeSessionRaw),
+    active_break: activeBreak,
+    last_heartbeat: heartbeatValue,
     summary,
-    blocklist,
-    logs,
-    serverTime: new Date().toISOString(),
+    blocklist: blocklistVar?.value || [],
+    logs: (rawLogs as Log[]).map(mapConvexDoc),
   });
 }

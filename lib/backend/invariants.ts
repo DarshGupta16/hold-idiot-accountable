@@ -22,3 +22,11 @@ export async function ensureActiveSession(): Promise<StudySession> {
   }
   return active;
 }
+
+export async function ensureNoActiveBreak() {
+  const convex = getLocalClient();
+  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  if (breakVar) {
+    throw new Error("Invariant Violation: A break is already active.");
+  }
+}

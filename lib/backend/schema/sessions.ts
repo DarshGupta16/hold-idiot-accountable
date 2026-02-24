@@ -1,3 +1,5 @@
+import { Id } from "@/convex/_generated/dataModel";
+
 /**
  * Study Sessions Schema Types
  *
@@ -36,7 +38,7 @@ export interface TimelineEvent {
 
 export interface StudySession {
   /** Convex document ID */
-  _id: string;
+  _id: Id<"studySessions">;
 
   /** API-mapped ID for frontend (same as _id) */
   id?: string;

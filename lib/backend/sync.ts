@@ -141,7 +141,7 @@ export async function replicatedMutation<
 >(table: T, operation: M, args: unknown): Promise<unknown> {
   const local = getLocalClient();
   const apiModule = (api as Record<string, Record<string, unknown>>)[table];
-  const mutation = apiModule[operation];
+  const mutation = apiModule[operation as string];
 
   // 1. Execute locally
   const result = await local.mutation(mutation as MutationRef, args);

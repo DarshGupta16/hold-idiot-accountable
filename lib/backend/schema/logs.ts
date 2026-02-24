@@ -1,3 +1,5 @@
+import { Id } from "@/convex/_generated/dataModel";
+
 /**
  * Logs Schema Types
  *
@@ -25,7 +27,7 @@ export type LogType =
 
 export interface Log {
   /** Convex document ID */
-  _id: string;
+  _id: Id<"logs">;
 
   /** API-mapped ID for frontend (same as _id) */
   id?: string;
@@ -40,7 +42,7 @@ export interface Log {
   metadata?: Record<string, unknown>;
 
   /** Relation to studySessions table (optional) */
-  session?: string;
+  session?: Id<"studySessions">;
 
   /** Auto-generated on create (numeric millisecond timestamp) */
   _creationTime: number;

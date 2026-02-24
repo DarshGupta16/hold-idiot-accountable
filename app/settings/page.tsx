@@ -12,7 +12,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/Switch";
+import { ThemeButton, ToggleRow } from "@/components/ui/SettingsUI";
 import * as React from "react";
 
 export default function SettingsPage() {
@@ -36,7 +36,6 @@ export default function SettingsPage() {
   return (
     <main className="min-h-screen pb-24 bg-stone-50 dark:bg-stone-900">
       <div className="max-w-md mx-auto px-6 py-12">
-        {/* Header and Appearance/Density sections... same as before... */}
         <header className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-50 font-[family-name:var(--font-montserrat)]">
             Settings
@@ -155,54 +154,5 @@ export default function SettingsPage() {
       </div>
       <Navigation />
     </main>
-  );
-}
-
-function ThemeButton({
-  currentTheme,
-  value,
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  currentTheme?: string;
-  value: string;
-  icon: React.ElementType;
-  label: string;
-  onClick: () => void;
-}) {
-  const isActive = currentTheme === value;
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex flex-col items-center justify-center py-4 rounded-sm border transition-all duration-200",
-        isActive
-          ? "border-stone-900 dark:border-stone-100 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-          : "border-stone-200 dark:border-stone-800 text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-600 dark:hover:text-stone-300",
-      )}
-    >
-      <Icon className="w-5 h-5 mb-2" />
-      <span className="text-xs font-medium">{label}</span>
-    </button>
-  );
-}
-
-function ToggleRow({
-  label,
-  defaultChecked,
-}: {
-  label: string;
-  defaultChecked: boolean;
-}) {
-  const [checked, setChecked] = React.useState(defaultChecked);
-
-  return (
-    <div className="flex items-center justify-between p-4">
-      <span className="text-sm text-stone-600 dark:text-stone-300">
-        {label}
-      </span>
-      <Switch checked={checked} onCheckedChange={setChecked} />
-    </div>
   );
 }
