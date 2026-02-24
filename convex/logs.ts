@@ -49,6 +49,8 @@ export const create = mutation({
     type: v.union(
       v.literal("session_start"),
       v.literal("session_end"),
+      v.literal("break_start"),
+      v.literal("break_end"),
       v.literal("blocklist_change"),
       v.literal("warn"),
       v.literal("breach"),
@@ -83,5 +85,15 @@ export const count = query({
   handler: async (ctx) => {
     const all = await ctx.db.query("logs").collect();
     return all.length;
+  },
+});
+
+export const listRecent = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("logs")
+      .order("desc")
+      .take(args.limit || 20);
   },
 });

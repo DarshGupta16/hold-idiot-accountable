@@ -22,6 +22,8 @@ export enum EventType {
   HEARTBEAT = "HEARTBEAT",
   SESSION_START = "SESSION_START",
   SESSION_STOP = "SESSION_STOP",
+  BREAK_START = "BREAK_START",
+  BREAK_STOP = "BREAK_STOP",
   BLOCKLIST_EVENT = "BLOCKLIST_EVENT",
 }
 
@@ -58,6 +60,23 @@ export const SessionStopSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const BreakStartSchema = z.object({
+  event_type: z.literal(EventType.BREAK_START),
+  timestamp: z.string().datetime(),
+  duration_sec: z.number().positive(),
+  next_session: z.object({
+    subject: z.string().min(1),
+    planned_duration_sec: z.number().positive(),
+    blocklist: z.array(z.string()).default([]),
+  }),
+});
+
+export const BreakStopSchema = z.object({
+  event_type: z.literal(EventType.BREAK_STOP),
+  timestamp: z.string().datetime(),
+  reason: z.string().optional(),
+});
+
 export const BlocklistEventSchema = z.object({
   event_type: z.literal(EventType.BLOCKLIST_EVENT),
   timestamp: z.string().datetime(),
@@ -70,6 +89,8 @@ export const WebhookEventSchema = z.union([
   HeartbeatSchema,
   SessionStartSchema,
   SessionStopSchema,
+  BreakStartSchema,
+  BreakStopSchema,
   BlocklistEventSchema,
 ]);
 

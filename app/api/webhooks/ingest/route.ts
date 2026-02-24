@@ -6,6 +6,8 @@ import {
   processSessionStart,
   processSessionStop,
   processBlocklistEvent,
+  processBreakStart,
+  processBreakStop,
 } from "@/lib/backend/derivation";
 import { verifyHomelabKey } from "@/lib/backend/auth";
 
@@ -66,6 +68,12 @@ export async function POST(req: NextRequest) {
         break;
       case EventType.SESSION_STOP:
         await processSessionStop(event);
+        break;
+      case EventType.BREAK_START:
+        await processBreakStart(event);
+        break;
+      case EventType.BREAK_STOP:
+        await processBreakStop(event);
         break;
       case EventType.BLOCKLIST_EVENT:
         await processBlocklistEvent(event);

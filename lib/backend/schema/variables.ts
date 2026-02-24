@@ -51,6 +51,18 @@ export interface SummaryValue {
 /** Value structure for the "blocklist" variable */
 export type BlocklistValue = string[];
 
+/** Value structure for the "break" variable */
+export interface BreakValue {
+  started_at: string;
+  duration_sec: number;
+  next_session: {
+    subject: string;
+    planned_duration_sec: number;
+    blocklist: string[];
+  };
+  scheduled_job_id?: string;
+}
+
 // ============================================================================
 // CONVENIENCE TYPE ALIASES
 // ============================================================================
@@ -58,3 +70,4 @@ export type BlocklistValue = string[];
 export type HeartbeatVariable = Variable<HeartbeatValue>;
 export type SummaryVariable = Variable<SummaryValue>;
 export type BlocklistVariable = Variable<BlocklistValue>;
+export type BreakVariable = Variable<BreakValue>;

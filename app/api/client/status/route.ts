@@ -42,17 +42,20 @@ export async function GET(req: NextRequest) {
     heartbeatVar,
     summaryVar,
     blocklistVar,
+    breakVar,
   ] = await Promise.all([
     convex.query(api.studySessions.getActive),
     convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
     convex.query(api.variables.getByKey, { key: "summary" }),
     convex.query(api.variables.getByKey, { key: "blocklist" }),
+    convex.query(api.variables.getByKey, { key: "break" }),
   ]);
 
   const activeSession = mapConvexDoc(activeSessionRaw);
   const lastHeartbeat = heartbeatVar?.value;
   const summary = summaryVar?.value as SummaryValue | undefined;
   const blocklist = blocklistVar?.value || [];
+  const activeBreak = breakVar?.value;
 
   // 3. Fetch Logs
   let logs: unknown[] = [];
@@ -60,10 +63,13 @@ export async function GET(req: NextRequest) {
   if (sessionId) {
     const rawLogs = await convex.query(api.logs.getBySession, { sessionId });
     logs = rawLogs.map((l: Log) => mapConvexDoc(l));
+  } else if (activeBreak) {
+    const rawLogs = await convex.query(api.logs.listRecent, { limit: 20 });
+    logs = rawLogs.map((l: Log) => mapConvexDoc(l));
   }
 
   // 4. Lazy Watchdog
-  if (config.isProd && lastHeartbeat?.timestamp && activeSession) {
+  if (config.isProd && lastHeartbeat?.timestamp && (activeSession || activeBreak)) {
     const hbTime = new Date(lastHeartbeat.timestamp).getTime();
     const nowTime = Date.now();
     const diffSeconds = (nowTime - hbTime) / 1000;
@@ -102,6 +108,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     activeSession,
+    activeBreak,
     lastHeartbeat,
     summary,
     blocklist,

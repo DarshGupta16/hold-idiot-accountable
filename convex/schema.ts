@@ -36,6 +36,8 @@ export default defineSchema({
     type: v.union(
       v.literal("session_start"),
       v.literal("session_end"),
+      v.literal("break_start"),
+      v.literal("break_end"),
       v.literal("blocklist_change"),
       v.literal("warn"),
       v.literal("breach"),

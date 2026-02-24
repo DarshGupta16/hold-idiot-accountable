@@ -20,8 +20,8 @@ export default function Home() {
   });
 
   // Client-side duration ticker
-  const startedAt = data?.activeSession?.started_at;
-  const plannedDuration = data?.activeSession?.planned_duration_sec || 0;
+  const startedAt = data?.activeSession?.started_at || data?.activeBreak?.started_at;
+  const plannedDuration = data?.activeSession?.planned_duration_sec || data?.activeBreak?.duration_sec || 0;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -84,6 +84,7 @@ export default function Home() {
   const status = useMemo(() => {
     if (isLoading) return "IDLE";
     if (data?.activeSession) return "FOCUSING";
+    if (data?.activeBreak) return "BREAK";
     if (data?.summary) return "REFLECTION"; // New state: Idle but showing last session
     return "IDLE";
   }, [data, isLoading]);
@@ -99,6 +100,8 @@ export default function Home() {
       let type: "START" | "END" | "BREACH" | "WARNING" | "INFO" = "INFO";
       if (log.type === "session_start") type = "START";
       if (log.type === "session_end") type = "END";
+      if (log.type === "break_start") type = "START";
+      if (log.type === "break_end") type = "END";
       if (log.type === "breach") type = "BREACH";
       if (log.type === "warn") type = "WARNING";
 
@@ -121,7 +124,7 @@ export default function Home() {
       <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
         status={status === "REFLECTION" ? "IDLE" : status}
-        subject={data?.activeSession?.subject || data?.summary?.subject}
+        subject={data?.activeSession?.subject || data?.activeBreak?.next_session?.subject || data?.summary?.subject}
         duration={timerData.display}
         progressPercent={timerData.progressPercent}
         startTime={timerData.startTime}
@@ -129,12 +132,14 @@ export default function Home() {
         isOvertime={timerData.isOvertime}
       />
 
-      {(status === "FOCUSING" || status === "REFLECTION") && (
+      {(status === "FOCUSING" || status === "REFLECTION" || status === "BREAK") && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-backwards">
           <SummaryPanel
             summary={
               status === "FOCUSING"
-                ? "Session active. Monitoring for interruptions."
+                ? (data?.summary?.session_id === "break-system" ? data?.summary?.summary_text : "Session active. Monitoring for interruptions.")
+                : status === "BREAK"
+                ? `On break. Preparing for ${data?.activeBreak?.next_session?.subject}.`
                 : data?.summary?.summary_text || "Session closed."
             }
           />

@@ -6,7 +6,10 @@ import {
   SessionStopSchema,
   BlocklistEventSchema,
   HeartbeatSchema,
+  BreakStartSchema,
+  BreakStopSchema,
   BlocklistEventType,
+  EventType,
 } from "@/lib/backend/types";
 import { z } from "zod";
 import {
@@ -21,6 +24,7 @@ import {
   TimelineEvent,
   TimelineEventType,
   LogType,
+  BreakValue,
 } from "@/lib/backend/schema";
 
 export async function processHeartbeat(
@@ -50,10 +54,24 @@ export async function processHeartbeat(
   });
 }
 
+/**
+ * Internal helper to ensure no active break is running
+ */
+async function ensureNoActiveBreak() {
+  const convex = getLocalClient();
+  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  if (breakVar) {
+    throw new Error("Invariant Violation: A break is already active.");
+  }
+}
+
 export async function processSessionStart(
   payload: z.infer<typeof SessionStartSchema>,
+  options?: { isFromBreak?: boolean }
 ) {
   await ensureNoActiveSession();
+  await ensureNoActiveBreak();
+  
   const serverNow = new Date().toISOString();
 
   const sessionData = {
@@ -79,7 +97,10 @@ export async function processSessionStart(
   const logData = {
     type: "session_start" as const,
     message: `Session started: ${payload.subject} for ${formatDuration(payload.planned_duration_sec)}`,
-    metadata: payload,
+    metadata: {
+      ...payload,
+      triggered_by: options?.isFromBreak ? "break_end" : "client_request"
+    },
     session: sessionId,
   };
   
@@ -91,6 +112,99 @@ export async function processSessionStart(
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
+}
+
+export async function processBreakStart(
+  payload: z.infer<typeof BreakStartSchema>,
+) {
+  await ensureNoActiveSession();
+  await ensureNoActiveBreak();
+
+  const serverNow = new Date().toISOString();
+
+  const breakData: BreakValue = {
+    started_at: serverNow,
+    duration_sec: payload.duration_sec,
+    next_session: payload.next_session,
+  };
+
+  await replicatedMutation("variables", "upsert", {
+    key: "break",
+    value: breakData,
+  });
+
+  const logData = {
+    type: "break_start" as const,
+    message: `Break started: ${formatDuration(payload.duration_sec)}. Next session: ${payload.next_session.subject}`,
+    metadata: payload,
+  };
+
+  const local = getLocalClient();
+  await local.mutation(api.logs.create, logData);
+  replicateToCloud("logs", "create", logData).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
+}
+
+export async function processBreakStop(
+  payload: z.infer<typeof BreakStopSchema>,
+) {
+  const convex = getLocalClient();
+  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  if (!breakVar) {
+    throw new Error("Invariant Violation: No active break found to stop.");
+  }
+
+  const breakVal = breakVar.value as BreakValue;
+  const serverNow = new Date();
+  const startTime = new Date(breakVal.started_at);
+  const elapsedSeconds = (serverNow.getTime() - startTime.getTime()) / 1000;
+
+  // Determination: If stopped manually (payload has reason) vs automatically
+  const isAutomatic = !payload.reason && elapsedSeconds >= breakVal.duration_sec - 5;
+  const reason = payload.reason || (isAutomatic ? "The break ended." : "No reason was provided.");
+
+  const logData = {
+    type: "break_end" as const,
+    message: `Break ended. Reason: ${reason}`,
+    metadata: {
+      ...payload,
+      reason,
+      actual_duration: elapsedSeconds,
+      was_automatic: isAutomatic,
+    },
+  };
+
+  await convex.mutation(api.logs.create, logData);
+  replicateToCloud("logs", "create", logData).catch((err) => {
+    console.error("[Sync] Background log replication failed:", err);
+  });
+
+  // Transition to next session
+  await processSessionStart({
+    event_type: EventType.SESSION_START,
+    timestamp: serverNow.toISOString(),
+    ...breakVal.next_session,
+  }, { isFromBreak: true });
+
+  // Cleanup break variable
+  await replicatedMutation("variables", "remove", { key: "break" });
+
+  // If premature (not automatic), update summary to show the reason
+  if (!isAutomatic) {
+    const summaryPayload = {
+      summary_text: `The previous break was stopped prematurely. Reason: ${reason}`,
+      status_label: "MIXED" as const,
+      generated_at: serverNow.toISOString(),
+      session_id: "break-system", // Marker
+      subject: breakVal.next_session.subject,
+    };
+
+    await replicatedMutation("variables", "upsert", {
+      key: "summary",
+      value: summaryPayload,
+    });
+  }
 }
 
 export async function processSessionStop(

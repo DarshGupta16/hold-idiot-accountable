@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 
 interface StatusPanelProps {
-  status: "FOCUSING" | "IDLE" | "BREACH";
+  status: "FOCUSING" | "IDLE" | "BREACH" | "BREAK";
   subject?: string;
   duration?: string;
   progressPercent?: number;
@@ -23,6 +23,7 @@ export function StatusPanel({
 }: StatusPanelProps) {
   const isFocusing = status === "FOCUSING";
   const isBreach = status === "BREACH";
+  const isBreak = status === "BREAK";
 
   return (
     <div className="flex flex-col items-center justify-center py-24 space-y-6 relative w-full h-[40vh]">
@@ -31,7 +32,7 @@ export function StatusPanel({
         <div
           className={cn(
             "w-2 h-2 rounded-full transition-colors duration-500",
-            isFocusing ? "bg-emerald-500 animate-pulse" : "bg-stone-400",
+            (isFocusing || isBreak) ? "bg-emerald-500 animate-pulse" : "bg-stone-400",
           )}
         />
       </div>
@@ -41,11 +42,12 @@ export function StatusPanel({
           className={cn(
             "text-6xl sm:text-7xl font-bold tracking-wide font-[family-name:var(--font-montserrat)]",
             isFocusing && "text-stone-900 dark:text-stone-50",
+            isBreak && "text-indigo-600 dark:text-indigo-400",
             status === "IDLE" && "text-stone-400 dark:text-stone-600",
             isBreach && "text-red-800/80 dark:text-red-400/80",
           )}
         >
-          {status}
+          {status === "BREAK" ? "ON BREAK" : status}
         </h1>
         {subject && (
           <p className="text-xl text-stone-500 font-medium tracking-wide">
@@ -58,14 +60,14 @@ export function StatusPanel({
       <div
         className={cn(
           "font-mono text-lg tracking-widest",
-          isOvertime ? "text-red-600 dark:text-red-400" : "text-stone-400",
+          isOvertime ? "text-red-600 dark:text-red-400" : (isBreak ? "text-indigo-400" : "text-stone-400"),
         )}
       >
         {duration}
       </div>
 
-      {/* Progress bar - only shown when focusing */}
-      {isFocusing && (
+      {/* Progress bar - shown when focusing or on break */}
+      {(isFocusing || isBreak) && (
         <div className="w-full max-w-xs px-6 space-y-2">
           {/* Progress bar track */}
           <div className="w-full h-1 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
@@ -74,7 +76,7 @@ export function StatusPanel({
                 "h-full rounded-full transition-[width] duration-1000 ease-linear",
                 isOvertime
                   ? "bg-red-500/60 dark:bg-red-500/50"
-                  : "bg-stone-500 dark:bg-stone-400",
+                  : (isBreak ? "bg-indigo-500/60" : "bg-stone-500 dark:bg-stone-400"),
               )}
               style={{ width: `${Math.min(100, progressPercent)}%` }}
             />
