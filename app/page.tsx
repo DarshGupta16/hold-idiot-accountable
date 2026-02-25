@@ -7,12 +7,10 @@ import { SummaryPanel } from "@/components/ui/SummaryPanel";
 import { BlocklistPanel } from "@/components/ui/BlocklistPanel";
 import { Timeline } from "@/components/ui/Timeline";
 import { Navigation } from "@/components/ui/Navigation";
-import useSWR from "swr";
+import useSWR, { preload } from "swr";
 import { useMemo, useEffect, useState } from "react";
 import { Log } from "@/lib/backend/schema";
-
-// Fetcher
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from "@/lib/utils";
 
 export default function Home() {
   const { data, isLoading, mutate } = useSWR("/api/client/status", fetcher, {
@@ -88,6 +86,11 @@ export default function Home() {
     if (data?.summary) return "REFLECTION"; // New state: Idle but showing last session
     return "IDLE";
   }, [data, isLoading]);
+
+  // Prefetch history on status changes
+  useEffect(() => {
+    preload("/api/client/history", fetcher);
+  }, [status]);
 
   // Automatic transition for breaks
   useEffect(() => {

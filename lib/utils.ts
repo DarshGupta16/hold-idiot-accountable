@@ -27,3 +27,8 @@ export function formatDuration(seconds: number): string {
 
   return parts.join(" ");
 }
+
+/**
+ * Standard fetcher for SWR
+ */
+export const fetcher = (url: string) => fetch(url).then((res) => res.json());

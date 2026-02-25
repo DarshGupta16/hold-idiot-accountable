@@ -6,12 +6,13 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import useSWR from "swr";
 import { useMemo, useState } from "react";
 import { StudySession } from "@/lib/backend/schema";
-
-// Fetcher
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from "@/lib/utils";
 
 export default function LogsPage() {
-  const { data, isLoading } = useSWR("/api/client/history", fetcher);
+  const { data, isLoading } = useSWR("/api/client/history", fetcher, {
+    revalidateIfStale: false, // Use cache first if it exists
+    dedupingInterval: 60000,   // Don't refetch for 1 minute if we just prefetched
+  });
   const [selectedSession, setSelectedSession] = useState<StudySession | null>(
     null,
   );
@@ -96,7 +97,7 @@ export default function LogsPage() {
           </p>
         </header>
 
-        {isLoading && (
+        {!data && (
           <div className="text-stone-400 text-sm font-mono animate-pulse">
             Loading history...
           </div>
@@ -146,7 +147,7 @@ export default function LogsPage() {
             </div>
           ))}
 
-          {!isLoading && Object.keys(groupedLogs).length === 0 && (
+          {data && Object.keys(groupedLogs).length === 0 && (
             <p className="text-stone-400 text-sm italic">No history found.</p>
           )}
         </div>
