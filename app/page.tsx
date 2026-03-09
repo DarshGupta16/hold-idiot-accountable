@@ -1,6 +1,7 @@
 "use client";
 
 import { MissedHeartbeatModal } from "@/components/ui/MissedHeartbeatModal";
+import { UpdateModal } from "@/components/ui/UpdateModal";
 import { BlocklistTamperModal } from "@/components/ui/BlocklistTamperModal";
 import { StatusPanel } from "@/components/ui/StatusPanel";
 import { SummaryPanel } from "@/components/ui/SummaryPanel";
@@ -133,6 +134,7 @@ export default function Home() {
   return (
     <main className="min-h-screen pb-24 transition-colors duration-700">
       <MissedHeartbeatModal logs={data?.logs} onAcknowledge={() => mutate()} />
+      <UpdateModal update={data?.systemUpdate} onAcknowledge={() => mutate()} />
       <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
         status={status === "REFLECTION" ? "IDLE" : status}
