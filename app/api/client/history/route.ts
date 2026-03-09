@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const result = await convex.query(api.studySessions.list, {
+    const result = await convex.query(internal.studySessions.list, {
       paginationOpts: { numItems, cursor },
     });
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error("Error fetching history:", e);
     return NextResponse.json(
-      { error: "Failed to fetch history" },
+      { error: "An unexpected error occurred" },
       { status: 500 },
     );
   }

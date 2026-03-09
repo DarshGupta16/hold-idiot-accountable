@@ -1,7 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
-export const computeHash = query({
+export const computeHash = internalQuery({
   args: {},
   handler: async (ctx) => {
     const studySessions = await ctx.db.query("studySessions").collect();
@@ -26,7 +26,7 @@ export const computeHash = query({
   },
 });
 
-export const exportAll = query({
+export const exportAll = internalQuery({
   args: {},
   handler: async (ctx) => {
     const sessions = await ctx.db.query("studySessions").collect();
@@ -41,7 +41,7 @@ export const exportAll = query({
   },
 });
 
-export const importAll = mutation({
+export const importAll = internalMutation({
   args: {
     sessions: v.array(v.any()),
     logs: v.array(v.any()),
@@ -96,7 +96,7 @@ export const importAll = mutation({
   },
 });
 
-export const clearAll = mutation({
+export const clearAll = internalMutation({
   args: {},
   handler: async (ctx) => {
     const sessions = await ctx.db.query("studySessions").collect();

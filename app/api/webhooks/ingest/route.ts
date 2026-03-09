@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     console.error("Webhook Error:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "An unexpected error occurred" },
       { status: 500 },
     );
   }

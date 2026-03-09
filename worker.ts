@@ -1,6 +1,6 @@
 import { config } from "@/lib/backend/config";
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { bootstrapFromCloud, reconcile, replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import { processBreakStop, processMissedHeartbeat } from "@/lib/backend/derivation";
 import { EventType } from "@/lib/backend/types";
@@ -22,7 +22,7 @@ if (!config.convexUrl || !config.convexAdminKey) {
 async function checkBreaks() {
   try {
     const convex = getLocalClient();
-    const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+    const breakVar = await convex.query(internal.variables.getByKey, { key: "break" });
 
     if (!breakVar) return;
 
@@ -64,7 +64,7 @@ async function checkHeartbeat() {
     const convex = getLocalClient();
 
     // 1. Get Last Heartbeat
-    const heartbeatVar = await convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" });
+    const heartbeatVar = await convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" });
     const lastHeartbeat = heartbeatVar?.value;
 
     if (!lastHeartbeat?.timestamp) {
@@ -84,7 +84,7 @@ async function checkHeartbeat() {
     // 2. Check threshold
     if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS) {
       // 3. Check for Active Session
-      const activeSession = await convex.query(api.studySessions.getActive);
+      const activeSession = await convex.query(internal.studySessions.getActive);
       if (!activeSession) return;
 
       // 4. Log missed heartbeat immediately via derivation layer
