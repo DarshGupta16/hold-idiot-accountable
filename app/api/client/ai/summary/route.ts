@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 import { generateSessionSummary } from "@/lib/backend/ai";
 import { replicateToCloud } from "@/lib/backend/sync";
@@ -16,19 +16,33 @@ export async function POST(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const rawSessions = await convex.query(api.studySessions.list, {
+    const rawSessions = await convex.query(internal.studySessions.list, {
       paginationOpts: { numItems: 1, cursor: null },
     });
     const session = rawSessions.page[0];
 
     if (!session) {
       return NextResponse.json(
-        { error: "No session found to summarize" },
+        { error: "No session found" },
         { status: 404 },
       );
     }
 
-    const logs = await convex.query(api.logs.getBySessionAsc, { sessionId: session._id });
+    // 1. Quota / Cooldown Check
+    const currentSummaryVar = await convex.query(internal.variables.getByKey, { key: "summary" });
+    const currentSummary = currentSummaryVar?.value;
+
+    if (currentSummary && currentSummary.session_id === session._id) {
+      const generatedAt = new Date(currentSummary.generated_at).getTime();
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+
+      if (now - generatedAt < fiveMinutesInMs) {
+        return NextResponse.json({ success: true, summary: currentSummary, cached: true });
+      }
+    }
+
+    const logs = await convex.query(internal.logs.getBySessionAsc, { sessionId: session._id });
 
     // 4. Calculate Duration
     const startTime = new Date(session.started_at);
@@ -55,7 +69,7 @@ export async function POST(req: NextRequest) {
       session_id: session._id,
     };
 
-    await convex.mutation(api.variables.upsert, {
+    await convex.mutation(internal.variables.upsert, {
       key: "summary",
       value: variableValue,
     });
@@ -68,7 +82,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Summary generation error:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "An unexpected error occurred" },
       { status: 500 },
     );
   }

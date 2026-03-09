@@ -1,5 +1,5 @@
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import {
   BreakStartSchema,
@@ -42,7 +42,7 @@ export async function processBreakStart(
   };
 
   const local = getLocalClient();
-  await local.mutation(api.logs.create, logData);
+  await local.mutation(internal.logs.create, logData);
   replicateToCloud("logs", "create", logData).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
@@ -52,7 +52,7 @@ export async function processBreakStop(
   payload: z.infer<typeof BreakStopSchema>,
 ) {
   const convex = getLocalClient();
-  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  const breakVar = await convex.query(internal.variables.getByKey, { key: "break" });
   if (!breakVar) {
     throw new Error("Invariant Violation: No active break found to stop.");
   }
@@ -77,7 +77,7 @@ export async function processBreakStop(
     },
   };
 
-  await convex.mutation(api.logs.create, logData);
+  await convex.mutation(internal.logs.create, logData);
   replicateToCloud("logs", "create", logData).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
@@ -117,7 +117,7 @@ export async function processBreakSkip(
   payload: z.infer<typeof BreakSkipSchema>,
 ) {
   const convex = getLocalClient();
-  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  const breakVar = await convex.query(internal.variables.getByKey, { key: "break" });
   if (!breakVar) {
     throw new Error("Invariant Violation: No active break found to skip.");
   }
@@ -133,7 +133,7 @@ export async function processBreakSkip(
     },
   };
 
-  await convex.mutation(api.logs.create, logData);
+  await convex.mutation(internal.logs.create, logData);
   replicateToCloud("logs", "create", logData).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });

@@ -1,7 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const getBySession = query({
+export const getBySession = internalQuery({
   args: { sessionId: v.id("studySessions") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -12,7 +12,7 @@ export const getBySession = query({
   },
 });
 
-export const getBySessionAsc = query({
+export const getBySessionAsc = internalQuery({
   args: { sessionId: v.id("studySessions") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -23,7 +23,7 @@ export const getBySessionAsc = query({
   },
 });
 
-export const getUnacknowledgedAlerts = query({
+export const getUnacknowledgedAlerts = internalQuery({
   args: {},
   handler: async (ctx) => {
     // Convex doesn't support inequality filters on indexed fields effectively for this case without a compound index
@@ -44,7 +44,7 @@ export const getUnacknowledgedAlerts = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     type: v.union(
       v.literal("session_start"),
@@ -72,7 +72,7 @@ export const create = mutation({
   },
 });
 
-export const updateMetadata = mutation({
+export const updateMetadata = internalMutation({
   args: {
     id: v.id("logs"),
     metadata: v.any(),
@@ -82,7 +82,7 @@ export const updateMetadata = mutation({
   },
 });
 
-export const count = query({
+export const count = internalQuery({
   args: {},
   handler: async (ctx) => {
     const all = await ctx.db.query("logs").collect();
@@ -90,7 +90,7 @@ export const count = query({
   },
 });
 
-export const listRecent = query({
+export const listRecent = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     return await ctx.db

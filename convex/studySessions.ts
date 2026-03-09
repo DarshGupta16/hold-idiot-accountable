@@ -1,8 +1,8 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 
-export const getActive = query({
+export const getActive = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db
@@ -12,14 +12,14 @@ export const getActive = query({
   },
 });
 
-export const getById = query({
+export const getById = internalQuery({
   args: { id: v.id("studySessions") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
 });
 
-export const list = query({
+export const list = internalQuery({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -29,7 +29,7 @@ export const list = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     started_at: v.string(),
     planned_duration_sec: v.number(),
@@ -50,7 +50,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = internalMutation({
   args: {
     id: v.id("studySessions"),
     updates: v.object({
@@ -87,7 +87,7 @@ export const update = mutation({
   },
 });
 
-export const count = query({
+export const count = internalQuery({
   args: {},
   handler: async (ctx) => {
     const all = await ctx.db.query("studySessions").collect();
@@ -95,7 +95,7 @@ export const count = query({
   },
 });
 
-export const deleteTestSessions = mutation({
+export const deleteTestSessions = internalMutation({
   args: { olderThan: v.string() },
   handler: async (ctx, args) => {
     const threshold = new Date(args.olderThan).getTime();

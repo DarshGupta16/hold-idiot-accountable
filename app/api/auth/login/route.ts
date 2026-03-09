@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (!correctPassword) {
       console.error("HIA_CLIENT_PASSWORD is not set in environment variables");
       return NextResponse.json(
-        { error: "Server misconfiguration" },
+        { error: "An unexpected error occurred" },
         { status: 500 },
       );
     }
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "An unexpected error occurred" },
       { status: 500 },
     );
   }

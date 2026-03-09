@@ -1,5 +1,5 @@
 import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import {
@@ -63,7 +63,7 @@ export async function processSessionStart(
   
   // Local log with sessionId
   const local = getLocalClient();
-  await local.mutation(api.logs.create, logData);
+  await local.mutation(internal.logs.create, logData);
 
   // Replicate log to cloud (without ID to avoid mismatch)
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
@@ -98,13 +98,13 @@ export async function processSessionStop(
     session: session._id,
   };
   
-  await convex.mutation(api.logs.create, logData);
+  await convex.mutation(internal.logs.create, logData);
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
 
   // Build timeline from logs for this session
-  const logs = await convex.query(api.logs.getBySessionAsc, {
+  const logs = await convex.query(internal.logs.getBySessionAsc, {
     sessionId: session._id,
   });
 
@@ -164,7 +164,7 @@ export async function processSessionStop(
   };
   if (note) sessionUpdate.end_note = note;
 
-  await convex.mutation(api.studySessions.update, {
+  await convex.mutation(internal.studySessions.update, {
     id: session._id,
     updates: sessionUpdate,
   });
@@ -173,14 +173,14 @@ export async function processSessionStop(
   try {
     const cloud = getCloudClient();
     if (cloud) {
-      const cloudSession = await cloud.query(api.studySessions.getActive);
+      const cloudSession = await cloud.query(internal.studySessions.getActive);
       if (cloudSession) {
         // Sanity check: only update if it looks like the same session
         const isSameSession = cloudSession.started_at === session.started_at && 
                            cloudSession.subject === session.subject;
         
         if (isSameSession) {
-          await cloud.mutation(api.studySessions.update, {
+          await cloud.mutation(internal.studySessions.update, {
             id: cloudSession._id,
             updates: sessionUpdate,
           });
