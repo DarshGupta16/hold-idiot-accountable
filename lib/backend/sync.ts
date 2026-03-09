@@ -101,6 +101,23 @@ export async function reconcile() {
         key: APP_UPDATE_VAR_KEY,
         value: cloudUpdateVar.value,
       });
+    } else {
+      console.log(`[Sync] ${APP_UPDATE_VAR_KEY} not found in cloud. Initializing default...`);
+      const defaultValue = {
+        seen: true,
+        isNew: false,
+        message: "System initialized. Monitoring active.",
+      };
+      // Initialize in cloud
+      await cloud.mutation(api.variables.upsert, {
+        key: APP_UPDATE_VAR_KEY,
+        value: defaultValue,
+      });
+      // Also sync to local
+      await local.mutation(api.variables.upsert, {
+        key: APP_UPDATE_VAR_KEY,
+        value: defaultValue,
+      });
     }
 
     // Get counts from both sides
