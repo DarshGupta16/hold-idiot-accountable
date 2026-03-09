@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     summaryVar,
     blocklistVar,
     breakVar,
+    systemUpdateVar,
   ] = await Promise.all([
     convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
     convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
@@ -80,17 +81,20 @@ export async function GET(req: NextRequest) {
       summaryVar,
       blocklistVar,
       breakVar,
+      systemUpdateVar,
     ] = await Promise.all([
       convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
       convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
       convex.query(api.variables.getByKey, { key: "summary" }),
       convex.query(api.variables.getByKey, { key: "blocklist" }),
       convex.query(api.variables.getByKey, { key: "break" }),
+      convex.query(api.variables.getByKey, { key: "system_update" }),
     ]);
 
     heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
     summary = summaryVar?.value as SummaryValue | undefined;
     activeBreak = breakVar?.value as BreakValue | null;
+    systemUpdate = systemUpdateVar?.value || null;
     
     const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
     rawLogs = newSessionId 
