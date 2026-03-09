@@ -19,7 +19,8 @@ export type LogType =
   | "blocklist_change"
   | "warn"
   | "breach"
-  | "missed_heartbeat";
+  | "missed_heartbeat"
+  | "info";
 
 // ============================================================================
 // LOG RECORD

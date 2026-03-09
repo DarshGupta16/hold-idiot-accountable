@@ -34,8 +34,8 @@ export const getUnacknowledgedAlerts = query({
         q.or(
           q.eq(q.field("type"), "missed_heartbeat"),
           q.eq(q.field("type"), "breach"),
-          q.eq(q.field("type"), "warn")
-        )
+          q.eq(q.field("type"), "warn"),
+        ),
       )
       .order("desc")
       .take(100);
@@ -55,7 +55,8 @@ export const create = mutation({
       v.literal("blocklist_change"),
       v.literal("warn"),
       v.literal("breach"),
-      v.literal("missed_heartbeat")
+      v.literal("missed_heartbeat"),
+      v.literal("info"),
     ),
     message: v.string(),
     metadata: v.optional(v.any()),
