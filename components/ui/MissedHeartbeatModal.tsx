@@ -7,11 +7,13 @@ import { Log } from "@/lib/backend/schema";
 interface MissedHeartbeatModalProps {
   logs: Log[];
   onAcknowledge: () => void; // Callback to refresh data
+  missedCount: number;
 }
 
 export function MissedHeartbeatModal({
   logs,
   onAcknowledge,
+  missedCount,
 }: MissedHeartbeatModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
@@ -23,8 +25,9 @@ export function MissedHeartbeatModal({
       (log) =>
         log.type === "missed_heartbeat" && log.metadata?.acknowledged !== true,
     );
-    setIsOpen(hasMissed);
-  }, [logs]);
+    // Only show if we have at least 3 missed heartbeats
+    setIsOpen(hasMissed && missedCount >= 3);
+  }, [logs, missedCount]);
 
   const handleAcknowledge = async () => {
     setIsAcknowledging(true);
@@ -63,11 +66,11 @@ export function MissedHeartbeatModal({
 
           <div className="space-y-4">
             <p className="text-stone-600 dark:text-stone-400 leading-relaxed text-sm font-medium">
-              The server failed to receive an expected telemetry ping within the 2-minute window. 
+              Heartbeats have not been detected for the past 1.5 minutes. Something might be wrong with the monitoring script or system connectivity.
             </p>
             <div className="p-4 bg-stone-50 dark:bg-stone-950 border border-stone-100 dark:border-stone-800 rounded-sm">
               <p className="text-xs text-stone-500 dark:text-stone-500 leading-relaxed italic">
-                Reason: Potential script termination or manual interference detected. System integrity cannot be verified for this interval.
+                You will be informed when heartbeats start being detected again. System integrity cannot be verified for this interval.
               </p>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { MissedHeartbeatModal } from "@/components/ui/MissedHeartbeatModal";
 import { UpdateModal } from "@/components/ui/UpdateModal";
+import { HeartbeatResumedModal } from "@/components/ui/HeartbeatResumedModal";
 import { BlocklistTamperModal } from "@/components/ui/BlocklistTamperModal";
 import { StatusPanel } from "@/components/ui/StatusPanel";
 import { SummaryPanel } from "@/components/ui/SummaryPanel";
@@ -9,7 +10,7 @@ import { BlocklistPanel } from "@/components/ui/BlocklistPanel";
 import { Timeline } from "@/components/ui/Timeline";
 import { Navigation } from "@/components/ui/Navigation";
 import useSWR, { preload } from "swr";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import { Log } from "@/lib/backend/schema";
 import { fetcher } from "@/lib/utils";
 
@@ -32,6 +33,44 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, [startedAt]);
+
+  // Heartbeat tracking
+  const [showResumedModal, setShowResumedModal] = useState(false);
+  const prevWasMissingRef = useRef(false);
+  
+  const missedHeartbeatInfo = useMemo(() => {
+    if (!data?.lastHeartbeat || !data?.logs) return null;
+    
+    const unacknowledgedLogs = data.logs.filter(
+      (l: Log) => l.type === "missed_heartbeat" && l.metadata?.acknowledged !== true
+    );
+    
+    if (unacknowledgedLogs.length === 0) {
+      if (prevWasMissingRef.current) {
+        setShowResumedModal(true);
+        prevWasMissingRef.current = false;
+      }
+      return null;
+    }
+
+    // Sort by creation time to get the latest
+    const latestMissed = [...unacknowledgedLogs].sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    )[0];
+    
+    const gapMinutes = (latestMissed.metadata?.gap_minutes as number) || 0;
+    const count = Math.ceil((gapMinutes * 60) / 33);
+    
+    if (count >= 1) {
+      prevWasMissingRef.current = true;
+    }
+
+    return {
+      count,
+      gapMinutes,
+      lastSeen: latestMissed.metadata?.last_seen as string,
+    };
+  }, [data?.lastHeartbeat, data?.logs]);
 
   // Countdown timer logic
   const timerData = useMemo(() => {
@@ -133,7 +172,15 @@ export default function Home() {
 
   return (
     <main className="min-h-screen pb-24 transition-colors duration-700">
-      <MissedHeartbeatModal logs={data?.logs} onAcknowledge={() => mutate()} />
+      <MissedHeartbeatModal 
+        logs={data?.logs} 
+        onAcknowledge={() => mutate()} 
+        missedCount={missedHeartbeatInfo?.count || 0}
+      />
+      <HeartbeatResumedModal 
+        isOpen={showResumedModal} 
+        onClose={() => setShowResumedModal(false)} 
+      />
       <UpdateModal update={data?.systemUpdate} onAcknowledge={() => mutate()} />
       <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
@@ -152,7 +199,9 @@ export default function Home() {
           <SummaryPanel
             summary={
               status === "FOCUSING"
-                ? (data?.summary?.session_id === "break-system" ? data?.summary?.summary_text : "Session active. Monitoring for interruptions.")
+                ? (missedHeartbeatInfo 
+                    ? `ALERT: ${missedHeartbeatInfo.count} heartbeats missed. Last seen ${missedHeartbeatInfo.gapMinutes.toFixed(1)}m ago. This could mean Darsh is cheating.`
+                    : (data?.summary?.session_id === "break-system" ? data?.summary?.summary_text : "Session active. Monitoring for interruptions."))
                 : status === "BREAK"
                 ? `On break. Preparing for ${data?.activeBreak?.next_session?.subject}.`
                 : data?.summary?.summary_text || "Session closed."
