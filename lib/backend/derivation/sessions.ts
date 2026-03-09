@@ -5,7 +5,6 @@ import { replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import {
   SessionStartSchema,
   SessionStopSchema,
-  EventType,
 } from "@/lib/backend/types";
 import { z } from "zod";
 import {
@@ -176,11 +175,24 @@ export async function processSessionStop(
     if (cloud) {
       const cloudSession = await cloud.query(api.studySessions.getActive);
       if (cloudSession) {
-        await cloud.mutation(api.studySessions.update, {
-          id: cloudSession._id,
-          updates: sessionUpdate,
-        });
-        console.log("[Sync] Replicated session update to cloud.");
+        // Sanity check: only update if it looks like the same session
+        const isSameSession = cloudSession.started_at === session.started_at && 
+                           cloudSession.subject === session.subject;
+        
+        if (isSameSession) {
+          await cloud.mutation(api.studySessions.update, {
+            id: cloudSession._id,
+            updates: sessionUpdate,
+          });
+          console.log("[Sync] Replicated session update to cloud.");
+        } else {
+          console.warn("[Sync] Cloud active session mismatch. Not replicating update.", {
+            local: { start: session.started_at, subject: session.subject },
+            cloud: { start: cloudSession.started_at, subject: cloudSession.subject }
+          });
+        }
+      } else {
+        console.warn("[Sync] No active session found in cloud to update.");
       }
     }
   } catch (e) {

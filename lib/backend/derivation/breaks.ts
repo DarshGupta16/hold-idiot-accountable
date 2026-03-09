@@ -83,12 +83,17 @@ export async function processBreakStop(
   });
 
   // Transition to next session ONLY if automatic
-  if (isAutomatic) {
-    await processSessionStart({
-      event_type: EventType.SESSION_START,
-      timestamp: serverNow.toISOString(),
-      ...breakVal.next_session,
-    }, { isFromBreak: true });
+  try {
+    if (isAutomatic) {
+      await processSessionStart({
+        event_type: EventType.SESSION_START,
+        timestamp: serverNow.toISOString(),
+        ...breakVal.next_session,
+      }, { isFromBreak: true });
+    }
+  } finally {
+    // ALWAYS Cleanup break variable to prevent resurrection loops
+    await replicatedMutation("variables", "remove", { key: "break" });
   }
 
   // If premature (not automatic), update summary to show the reason
@@ -106,9 +111,6 @@ export async function processBreakStop(
       value: summaryPayload,
     });
   }
-
-  // Cleanup break variable
-  await replicatedMutation("variables", "remove", { key: "break" });
 }
 
 export async function processBreakSkip(
@@ -137,12 +139,14 @@ export async function processBreakSkip(
   });
 
   // Transition to next session immediately
-  await processSessionStart({
-    event_type: EventType.SESSION_START,
-    timestamp: serverNow.toISOString(),
-    ...breakVal.next_session,
-  }, { isFromBreak: true });
-
-  // Cleanup break variable
-  await replicatedMutation("variables", "remove", { key: "break" });
+  try {
+    await processSessionStart({
+      event_type: EventType.SESSION_START,
+      timestamp: serverNow.toISOString(),
+      ...breakVal.next_session,
+    }, { isFromBreak: true });
+  } finally {
+    // ALWAYS Cleanup break variable to prevent resurrection loops
+    await replicatedMutation("variables", "remove", { key: "break" });
+  }
 }

@@ -75,13 +75,23 @@ export const importAll = mutation({
       await ctx.db.insert("logs", data);
     }
 
-    // 3. Insert variables
+    // 3. Insert variables (using upsert logic to prevent duplicate keys)
     for (const variable of args.variables) {
       const data = { ...variable } as Record<string, unknown>;
       delete data._id;
       delete data._creationTime;
-      // @ts-expect-error - Insert expects specific table record
-      await ctx.db.insert("variables", data);
+      
+      const existing = await ctx.db
+        .query("variables")
+        .withIndex("by_key", (q) => q.eq("key", data.key as string))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, { value: data.value });
+      } else {
+        // @ts-expect-error - Insert expects specific table record
+        await ctx.db.insert("variables", data);
+      }
     }
   },
 });
