@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 
@@ -37,7 +37,7 @@ export const create = mutation({
     status: v.union(
       v.literal("active"),
       v.literal("completed"),
-      v.literal("aborted")
+      v.literal("aborted"),
     ),
   },
   handler: async (ctx, args) => {
@@ -59,8 +59,8 @@ export const update = mutation({
         v.union(
           v.literal("active"),
           v.literal("completed"),
-          v.literal("aborted")
-        )
+          v.literal("aborted"),
+        ),
       ),
       end_note: v.optional(v.string()),
       timeline: v.optional(
@@ -73,11 +73,11 @@ export const update = mutation({
               v.literal("END"),
               v.literal("BREACH"),
               v.literal("WARNING"),
-              v.literal("INFO")
+              v.literal("INFO"),
             ),
             description: v.string(),
-          })
-        )
+          }),
+        ),
       ),
       summary: v.optional(v.string()),
     }),
@@ -121,8 +121,11 @@ export const deleteTestSessions = mutation({
           .filter((q) =>
             q.and(
               q.gte(q.field("_creationTime"), log._creationTime),
-              q.lte(q.field("_creationTime"), log._creationTime + (durationSec + 120) * 1000)
-            )
+              q.lte(
+                q.field("_creationTime"),
+                log._creationTime + (durationSec + 120) * 1000,
+              ),
+            ),
           )
           .collect();
 
@@ -137,7 +140,8 @@ export const deleteTestSessions = mutation({
 
     const toDelete = allSessions.filter((s) => {
       const subjectLower = s.subject.toLowerCase();
-      const isTest = subjectLower.includes("test") && subjectLower.includes("session");
+      const isTest =
+        subjectLower.includes("test") && subjectLower.includes("session");
       const isOld = new Date(s.started_at).getTime() < threshold;
       return isTest && isOld;
     });
@@ -160,5 +164,43 @@ export const deleteTestSessions = mutation({
     }
 
     return deletedCount;
+  },
+});
+
+export const terminateAfk = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const activeSessions = await ctx.db
+      .query("studySessions")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    const now = Date.now();
+    const fourHoursInMs = 4 * 60 * 60 * 1000;
+
+    for (const session of activeSessions) {
+      const startedAt = new Date(session.started_at).getTime();
+      if (now - startedAt > fourHoursInMs) {
+        // Delete associated logs
+        const logs = await ctx.db
+          .query("logs")
+          .withIndex("by_session", (q) => q.eq("session", session._id))
+          .collect();
+
+        for (const log of logs) {
+          await ctx.db.delete(log._id);
+        }
+
+        // Delete the session
+        await ctx.db.delete(session._id);
+
+        // Create an info log about the deletion
+        await ctx.db.insert("logs", {
+          type: "info",
+          message: `Automatically terminated inactive session for ${session.subject}`,
+          metadata: { subject: session.subject, automated_termination: true },
+        });
+      }
+    }
   },
 });

@@ -43,6 +43,7 @@ export default defineSchema({
       v.literal("warn"),
       v.literal("breach"),
       v.literal("missed_heartbeat"),
+      v.literal("info"),
     ),
     message: v.string(),
     metadata: v.optional(v.any()),
