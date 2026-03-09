@@ -1,10 +1,10 @@
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { StudySession } from "@/lib/backend/schema";
 
 export async function getActiveSession(): Promise<StudySession | null> {
   const convex = getLocalClient();
-  const session = await convex.query(api.studySessions.getActive);
+  const session = await convex.query(internal.studySessions.getActive);
   return session as StudySession | null;
 }
 
@@ -25,7 +25,7 @@ export async function ensureActiveSession(): Promise<StudySession> {
 
 export async function ensureNoActiveBreak() {
   const convex = getLocalClient();
-  const breakVar = await convex.query(api.variables.getByKey, { key: "break" });
+  const breakVar = await convex.query(internal.variables.getByKey, { key: "break" });
   if (breakVar) {
     throw new Error("Invariant Violation: A break is already active.");
   }

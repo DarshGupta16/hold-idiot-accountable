@@ -1,9 +1,10 @@
 import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { APP_UPDATE_VAR_KEY } from "./variables";
 
 type MutationRef = Parameters<ConvexHttpClient["mutation"]>[0];
+type QueryRef = Parameters<ConvexHttpClient["query"]>[0];
 
 /**
  * On cold start, if local is empty, pull from cloud.
@@ -15,22 +16,22 @@ export async function bootstrapFromCloud() {
   if (!cloud) return;
 
   try {
-    const sessionCount = await local.query(api.studySessions.count);
-    const logCount = await local.query(api.logs.count);
-    const varCount = await local.query(api.variables.count);
+    const sessionCount = await local.query(internal.studySessions.count);
+    const logCount = await local.query(internal.logs.count);
+    const varCount = await local.query(internal.variables.count);
 
     const total = sessionCount + logCount + varCount;
 
     if (total === 0) {
       console.log("[Sync] Local DB is empty. Bootstrapping from cloud...");
-      const data = await cloud.query(api.sync.exportAll);
+      const data = await cloud.query(internal.sync.exportAll);
 
       if (
         data.sessions.length > 0 ||
         data.logs.length > 0 ||
         data.variables.length > 0
       ) {
-        await local.mutation(api.sync.importAll, {
+        await local.mutation(internal.sync.importAll, {
           sessions: data.sessions,
           logs: data.logs,
           variables: data.variables,
@@ -68,7 +69,7 @@ export async function replicateToCloud(
   if (!cloud) return;
 
   try {
-    const apiModule = (api as Record<string, Record<string, unknown>>)[table];
+    const apiModule = (internal as Record<string, Record<string, unknown>>)[table];
     if (apiModule && apiModule[operation]) {
       await cloud.mutation(apiModule[operation] as MutationRef, args);
       console.log(`[Sync] Replicated ${operation} to cloud for ${table}`);
@@ -94,10 +95,10 @@ export async function reconcile() {
 
   try {
     // 1. Ensure we pull the cloud-controlled update variable specifically
-    const cloudUpdateVar = await cloud.query(api.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+    const cloudUpdateVar = await cloud.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
     if (cloudUpdateVar) {
       console.log("[Sync] Synchronizing cloud-controlled update variable...");
-      await local.mutation(api.variables.upsert, {
+      await local.mutation(internal.variables.upsert, {
         key: APP_UPDATE_VAR_KEY,
         value: cloudUpdateVar.value,
       });
@@ -109,26 +110,26 @@ export async function reconcile() {
         message: "System initialized. Monitoring active.",
       };
       // Initialize in cloud
-      await cloud.mutation(api.variables.upsert, {
+      await cloud.mutation(internal.variables.upsert, {
         key: APP_UPDATE_VAR_KEY,
         value: defaultValue,
       });
       // Also sync to local
-      await local.mutation(api.variables.upsert, {
+      await local.mutation(internal.variables.upsert, {
         key: APP_UPDATE_VAR_KEY,
         value: defaultValue,
       });
     }
 
     // Get counts from both sides
-    const localSessions = await local.query(api.studySessions.count);
-    const localLogs = await local.query(api.logs.count);
-    const localVars = await local.query(api.variables.count);
+    const localSessions = await local.query(internal.studySessions.count);
+    const localLogs = await local.query(internal.logs.count);
+    const localVars = await local.query(internal.variables.count);
     const localTotal = localSessions + localLogs + localVars;
 
-    const cloudSessions = await cloud.query(api.studySessions.count);
-    const cloudLogs = await cloud.query(api.logs.count);
-    const cloudVars = await cloud.query(api.variables.count);
+    const cloudSessions = await cloud.query(internal.studySessions.count);
+    const cloudLogs = await cloud.query(internal.logs.count);
+    const cloudVars = await cloud.query(internal.variables.count);
     const cloudTotal = cloudSessions + cloudLogs + cloudVars;
 
     console.log(
@@ -145,12 +146,12 @@ export async function reconcile() {
       console.log(
         "[Sync] Cloud is empty but local has data — pushing to cloud...",
       );
-      const data = await local.query(api.sync.exportAll);
+      const data = await local.query(internal.sync.exportAll);
       
       // Filter out cloud-controlled variables before pushing
       const filteredVariables = data.variables.filter((v: any) => v.key !== APP_UPDATE_VAR_KEY);
 
-      await cloud.mutation(api.sync.importAll, {
+      await cloud.mutation(internal.sync.importAll, {
         sessions: data.sessions,
         logs: data.logs,
         variables: filteredVariables,
@@ -171,11 +172,11 @@ export async function reconcile() {
  * Orchestrates a local mutation followed by fire-and-forget cloud replication.
  */
 export async function replicatedMutation<
-  T extends keyof typeof api,
-  M extends keyof (typeof api)[T],
+  T extends keyof typeof internal,
+  M extends keyof (typeof internal)[T],
 >(table: T, operation: M, args: unknown): Promise<unknown> {
   const local = getLocalClient();
-  const apiModule = (api as Record<string, Record<string, unknown>>)[table];
+  const apiModule = (internal as Record<string, Record<string, unknown>>)[table];
   const mutation = apiModule[operation as string];
 
   // 1. Execute locally

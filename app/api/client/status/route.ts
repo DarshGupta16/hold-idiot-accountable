@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { verifySession, verifyHomelabKey } from "@/lib/backend/auth";
 import { SummaryValue, Log, BreakValue, StudySession, HeartbeatValue } from "@/lib/backend/schema";
 import { reconcileLazyState } from "@/lib/backend/derivation";
@@ -35,47 +35,9 @@ export async function GET(req: NextRequest) {
 
   const convex = getLocalClient();
 
-  // 2. Initial Fetch
-  let [
-    activeSessionRaw,
-    heartbeatVar,
-    summaryVar,
-    blocklistVar,
-    breakVar,
-    systemUpdateVar,
-  ] = await Promise.all([
-    convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
-    convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
-    convex.query(api.variables.getByKey, { key: "summary" }),
-    convex.query(api.variables.getByKey, { key: "blocklist" }),
-    convex.query(api.variables.getByKey, { key: "break" }),
-    convex.query(api.variables.getByKey, { key: "system_update" }),
-  ]);
-
-  let heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
-  let summary = summaryVar?.value as SummaryValue | undefined;
-  let activeBreak = breakVar?.value as BreakValue | null;
-  let systemUpdate = systemUpdateVar?.value || null;
-
-  // 3. Fetch Initial Logs (for reconciliation check)
-  const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
-  let rawLogs = sessionId 
-    ? await convex.query(api.logs.getBySession, { sessionId })
-    : await convex.query(api.logs.listRecent, { limit: 20 });
-  
-  const typedLogs = rawLogs as Log[];
-
-  // 4. Lazy Reconciliation
-  const stateChanged = await reconcileLazyState({
-    activeSession: activeSessionRaw,
-    activeBreak,
-    lastHeartbeat: heartbeatValue,
-    recentLogs: typedLogs,
-  });
-
-  if (stateChanged) {
-    // Re-fetch EVERYTHING if state changed to ensure consistency
-    [
+  try {
+    // 2. Initial Fetch
+    let [
       activeSessionRaw,
       heartbeatVar,
       summaryVar,
@@ -83,33 +45,79 @@ export async function GET(req: NextRequest) {
       breakVar,
       systemUpdateVar,
     ] = await Promise.all([
-      convex.query(api.studySessions.getActive) as Promise<StudySession | null>,
-      convex.query(api.variables.getByKey, { key: "lastHeartbeatAt" }),
-      convex.query(api.variables.getByKey, { key: "summary" }),
-      convex.query(api.variables.getByKey, { key: "blocklist" }),
-      convex.query(api.variables.getByKey, { key: "break" }),
-      convex.query(api.variables.getByKey, { key: "system_update" }),
+      convex.query(internal.studySessions.getActive) as Promise<StudySession | null>,
+      convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" }),
+      convex.query(internal.variables.getByKey, { key: "summary" }),
+      convex.query(internal.variables.getByKey, { key: "blocklist" }),
+      convex.query(internal.variables.getByKey, { key: "break" }),
+      convex.query(internal.variables.getByKey, { key: "system_update" }),
     ]);
 
-    heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
-    summary = summaryVar?.value as SummaryValue | undefined;
-    activeBreak = breakVar?.value as BreakValue | null;
-    systemUpdate = systemUpdateVar?.value || null;
-    
-    const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
-    rawLogs = newSessionId 
-      ? await convex.query(api.logs.getBySession, { sessionId: newSessionId })
-      : await convex.query(api.logs.listRecent, { limit: 20 });
-  }
+    let heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
+    let summary = summaryVar?.value as SummaryValue | undefined;
+    let activeBreak = breakVar?.value as BreakValue | null;
+    let systemUpdate = systemUpdateVar?.value || null;
 
-  // 5. Final Assembly
-  return NextResponse.json({
-    activeSession: mapConvexDoc(activeSessionRaw),
-    activeBreak: activeBreak,
-    lastHeartbeat: heartbeatValue,
-    summary,
-    blocklist: blocklistVar?.value || [],
-    logs: (rawLogs as Log[]).map(mapConvexDoc),
-    systemUpdate: systemUpdate,
-  });
+    // 3. Fetch Initial Logs (for reconciliation check)
+    const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
+    let rawLogs = (sessionId 
+      ? await convex.query(internal.logs.getBySession, { sessionId })
+      : await convex.query(internal.logs.listRecent, { limit: 20 })) || [];
+    
+    const typedLogs = rawLogs as Log[];
+
+    // 4. Lazy Reconciliation
+    const stateChanged = await reconcileLazyState({
+      activeSession: activeSessionRaw,
+      activeBreak,
+      lastHeartbeat: heartbeatValue,
+      recentLogs: typedLogs,
+    });
+
+    if (stateChanged) {
+      // Re-fetch EVERYTHING if state changed to ensure consistency
+      [
+        activeSessionRaw,
+        heartbeatVar,
+        summaryVar,
+        blocklistVar,
+        breakVar,
+        systemUpdateVar,
+      ] = await Promise.all([
+        convex.query(internal.studySessions.getActive) as Promise<StudySession | null>,
+        convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" }),
+        convex.query(internal.variables.getByKey, { key: "summary" }),
+        convex.query(internal.variables.getByKey, { key: "blocklist" }),
+        convex.query(internal.variables.getByKey, { key: "break" }),
+        convex.query(internal.variables.getByKey, { key: "system_update" }),
+      ]);
+
+      heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
+      summary = summaryVar?.value as SummaryValue | undefined;
+      activeBreak = breakVar?.value as BreakValue | null;
+      systemUpdate = systemUpdateVar?.value || null;
+      
+      const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
+      rawLogs = (newSessionId 
+        ? await convex.query(internal.logs.getBySession, { sessionId: newSessionId })
+        : await convex.query(internal.logs.listRecent, { limit: 20 })) || [];
+    }
+
+    // 5. Final Assembly
+    return NextResponse.json({
+      activeSession: mapConvexDoc(activeSessionRaw),
+      activeBreak: activeBreak,
+      lastHeartbeat: heartbeatValue,
+      summary,
+      blocklist: blocklistVar?.value || [],
+      logs: (rawLogs as Log[]).map(mapConvexDoc),
+      systemUpdate: systemUpdate,
+    });
+  } catch (error) {
+    console.error("Status fetch error:", error);
+    return NextResponse.json(
+      { error: "An unexpected error occurred" },
+      { status: 500 },
+    );
+  }
 }

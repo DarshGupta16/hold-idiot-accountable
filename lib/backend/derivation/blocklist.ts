@@ -1,5 +1,5 @@
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { replicateToCloud } from "@/lib/backend/sync";
 import {
   BlocklistEventSchema,
@@ -34,7 +34,7 @@ export async function processBlocklistEvent(
     session: activeSession ? activeSession._id : undefined,
   };
   
-  await convex.mutation(api.logs.create, logData);
+  await convex.mutation(internal.logs.create, logData);
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
