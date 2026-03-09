@@ -47,6 +47,14 @@ export const HeartbeatSchema = z.object({
   machine_id: z.string().min(1),
 });
 
+export const MissedHeartbeatSchema = z.object({
+  last_seen: z.string().datetime(),
+  gap_seconds: z.number().positive(),
+  session_id: z.any().optional(), // Convex ID
+});
+
+export type MissedHeartbeat = z.infer<typeof MissedHeartbeatSchema>;
+
 export const SessionStartSchema = z.object({
   event_type: z.literal(EventType.SESSION_START),
   timestamp: z.string().datetime(),

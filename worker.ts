@@ -2,7 +2,7 @@ import { config } from "@/lib/backend/config";
 import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { bootstrapFromCloud, reconcile, replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
-import { processBreakStop } from "@/lib/backend/derivation";
+import { processBreakStop, processMissedHeartbeat } from "@/lib/backend/derivation";
 import { EventType } from "@/lib/backend/types";
 import { BreakValue } from "@/lib/backend/schema";
 
@@ -87,26 +87,17 @@ async function checkHeartbeat() {
       const activeSession = await convex.query(api.studySessions.getActive);
       if (!activeSession) return;
 
-      // 4. Log missed heartbeat immediately
+      // 4. Log missed heartbeat immediately via derivation layer
       console.error(
         `[Worker] MISSING HEARTBEAT detected in session ${activeSession._id}! Gap: ${diffMinutes.toFixed(2)}m`,
       );
       
-      const metadata = {
+      await processMissedHeartbeat({
         last_seen: lastHeartbeat.timestamp,
-        gap_minutes: diffMinutes,
-        acknowledged: false,
-      };
+        gap_seconds: diffSeconds,
+        session_id: activeSession._id,
+      });
 
-      const logData = {
-        type: "missed_heartbeat" as const,
-        message: `ALERT: Missed heartbeat. Last contact: ${Math.floor(diffSeconds)}s ago.`,
-        metadata,
-        session: activeSession._id,
-      };
-      
-      await convex.mutation(api.logs.create, logData);
-      await replicateToCloud("logs", "create", { ...logData, session: undefined });
       console.log("[Worker] Missed heartbeat log created.");
     }
   } catch (e: unknown) {

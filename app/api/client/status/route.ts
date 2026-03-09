@@ -59,9 +59,9 @@ export async function GET(req: NextRequest) {
 
   // 3. Fetch Initial Logs (for reconciliation check)
   const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
-  let rawLogs = sessionId 
+  let rawLogs = (sessionId 
     ? await convex.query(api.logs.getBySession, { sessionId })
-    : await convex.query(api.logs.listRecent, { limit: 20 });
+    : await convex.query(api.logs.listRecent, { limit: 20 })) || [];
   
   const typedLogs = rawLogs as Log[];
 
@@ -97,19 +97,20 @@ export async function GET(req: NextRequest) {
     systemUpdate = systemUpdateVar?.value || null;
     
     const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
-    rawLogs = newSessionId 
+    rawLogs = (newSessionId 
       ? await convex.query(api.logs.getBySession, { sessionId: newSessionId })
-      : await convex.query(api.logs.listRecent, { limit: 20 });
+      : await convex.query(api.logs.listRecent, { limit: 20 })) || [];
   }
 
   // 5. Final Assembly
+  const logsToMap = (rawLogs as Log[]) || [];
   return NextResponse.json({
     activeSession: mapConvexDoc(activeSessionRaw),
     activeBreak: activeBreak,
     lastHeartbeat: heartbeatValue,
     summary,
     blocklist: blocklistVar?.value || [],
-    logs: (rawLogs as Log[]).map(mapConvexDoc),
+    logs: logsToMap.map(mapConvexDoc),
     systemUpdate: systemUpdate,
   });
 }
