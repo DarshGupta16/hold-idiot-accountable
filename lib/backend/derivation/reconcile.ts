@@ -4,6 +4,7 @@ import { config } from "@/lib/backend/config";
 import { BreakValue, Log, StudySession, HeartbeatValue } from "@/lib/backend/schema";
 import { EventType } from "@/lib/backend/types";
 import { processBreakStop } from "./breaks";
+import { replicatedMutation } from "@/lib/backend/sync";
 
 /**
  * Reconciles state that might have changed since the last check.
@@ -24,8 +25,18 @@ export async function reconcileLazyState(context: {
     const startTime = new Date(activeBreak.started_at).getTime();
     const now = Date.now();
     const elapsedSeconds = (now - startTime) / 1000;
+    const isPastDuration = elapsedSeconds >= activeBreak.duration_sec;
+    const isStale = elapsedSeconds > activeBreak.duration_sec + 3600; // More than 1 hour past end
 
-    if (elapsedSeconds >= activeBreak.duration_sec) {
+    if (isStale) {
+      console.warn(`[Reconcile] Break is stale (${elapsedSeconds.toFixed(1)}s elapsed). Clearing without starting next session...`);
+      try {
+        await replicatedMutation("variables", "remove", { key: "break" });
+        return true; // State changed
+      } catch (e) {
+        console.error("Failed to clear stale break:", e);
+      }
+    } else if (isPastDuration) {
       console.log(`[Reconcile] Break expired (${elapsedSeconds.toFixed(1)}s elapsed). Lazy stopping...`);
       try {
         await processBreakStop({

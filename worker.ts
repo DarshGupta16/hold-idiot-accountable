@@ -1,7 +1,7 @@
 import { config } from "@/lib/backend/config";
 import { getLocalClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
-import { bootstrapFromCloud, reconcile, replicateToCloud } from "@/lib/backend/sync";
+import { bootstrapFromCloud, reconcile, replicateToCloud, replicatedMutation } from "@/lib/backend/sync";
 import { processBreakStop } from "@/lib/backend/derivation";
 import { EventType } from "@/lib/backend/types";
 import { BreakValue } from "@/lib/backend/schema";
@@ -30,8 +30,15 @@ async function checkBreaks() {
     const startTime = new Date(breakVal.started_at).getTime();
     const now = Date.now();
     const elapsedSeconds = (now - startTime) / 1000;
+    const isPastDuration = elapsedSeconds >= breakVal.duration_sec;
+    const isStale = elapsedSeconds > breakVal.duration_sec + 3600; // More than 1 hour past end
 
-    if (elapsedSeconds >= breakVal.duration_sec) {
+    if (isStale) {
+      console.warn(
+        `[Worker] Break is stale (${elapsedSeconds.toFixed(1)}s elapsed). Clearing without starting next session...`,
+      );
+      await replicatedMutation("variables", "remove", { key: "break" });
+    } else if (isPastDuration) {
       console.log(
         `[Worker] Break expired (${elapsedSeconds.toFixed(1)}s elapsed). Starting next session: ${breakVal.next_session.subject}`,
       );
