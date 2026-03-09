@@ -1,6 +1,7 @@
 "use client";
 
 import { MissedHeartbeatModal } from "@/components/ui/MissedHeartbeatModal";
+import { UpdateModal } from "@/components/ui/UpdateModal";
 import { HeartbeatResumedModal } from "@/components/ui/HeartbeatResumedModal";
 import { BlocklistTamperModal } from "@/components/ui/BlocklistTamperModal";
 import { StatusPanel } from "@/components/ui/StatusPanel";
@@ -180,6 +181,7 @@ export default function Home() {
         isOpen={showResumedModal} 
         onClose={() => setShowResumedModal(false)} 
       />
+      <UpdateModal update={data?.systemUpdate} onAcknowledge={() => mutate()} />
       <BlocklistTamperModal logs={data?.logs} onAcknowledge={() => mutate()} />
       <StatusPanel
         status={status === "REFLECTION" ? "IDLE" : status}

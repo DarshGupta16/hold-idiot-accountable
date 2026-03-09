@@ -1,6 +1,7 @@
 import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
+import { APP_UPDATE_VAR_KEY } from "./variables";
 
 type MutationRef = Parameters<ConvexHttpClient["mutation"]>[0];
 
@@ -56,13 +57,17 @@ export async function replicateToCloud(
   operation: string,
   args: Record<string, unknown>,
 ) {
+  // If this is the cloud-controlled update variable, skip replication from local.
+  // This variable is controlled by cloud only.
+  if (table === "variables" && args.key === APP_UPDATE_VAR_KEY) {
+    console.log(`[Sync] Skipping replication of cloud-controlled variable: ${APP_UPDATE_VAR_KEY}`);
+    return;
+  }
+
   const cloud = getCloudClient();
   if (!cloud) return;
 
   try {
-    // Map the operation to the correct API call
-    // This assumes the API structure matches the table name and operation name
-    // e.g., table="logs", operation="create" -> api.logs.create
     const apiModule = (api as Record<string, Record<string, unknown>>)[table];
     if (apiModule && apiModule[operation]) {
       await cloud.mutation(apiModule[operation] as MutationRef, args);
@@ -88,6 +93,33 @@ export async function reconcile() {
   if (!cloud) return;
 
   try {
+    // 1. Ensure we pull the cloud-controlled update variable specifically
+    const cloudUpdateVar = await cloud.query(api.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+    if (cloudUpdateVar) {
+      console.log("[Sync] Synchronizing cloud-controlled update variable...");
+      await local.mutation(api.variables.upsert, {
+        key: APP_UPDATE_VAR_KEY,
+        value: cloudUpdateVar.value,
+      });
+    } else {
+      console.log(`[Sync] ${APP_UPDATE_VAR_KEY} not found in cloud. Initializing default...`);
+      const defaultValue = {
+        seen: true,
+        isNew: false,
+        message: "System initialized. Monitoring active.",
+      };
+      // Initialize in cloud
+      await cloud.mutation(api.variables.upsert, {
+        key: APP_UPDATE_VAR_KEY,
+        value: defaultValue,
+      });
+      // Also sync to local
+      await local.mutation(api.variables.upsert, {
+        key: APP_UPDATE_VAR_KEY,
+        value: defaultValue,
+      });
+    }
+
     // Get counts from both sides
     const localSessions = await local.query(api.studySessions.count);
     const localLogs = await local.query(api.logs.count);
@@ -114,15 +146,17 @@ export async function reconcile() {
         "[Sync] Cloud is empty but local has data — pushing to cloud...",
       );
       const data = await local.query(api.sync.exportAll);
+      
+      // Filter out cloud-controlled variables before pushing
+      const filteredVariables = data.variables.filter((v: any) => v.key !== APP_UPDATE_VAR_KEY);
+
       await cloud.mutation(api.sync.importAll, {
         sessions: data.sessions,
         logs: data.logs,
-        variables: data.variables,
+        variables: filteredVariables,
       });
-      console.log("[Sync] Pushed local data to cloud.");
+      console.log("[Sync] Pushed local data to cloud (filtered cloud-controlled vars).");
     } else {
-      // Both have data — log only, never delete.
-      // Per-write replication (replicateToCloud) handles ongoing sync.
       console.log(
         "[Sync] Both local and cloud have data. No destructive action taken.",
       );
@@ -131,6 +165,7 @@ export async function reconcile() {
     console.error("[Sync] Error during reconciliation:", error);
   }
 }
+
 
 /**
  * Orchestrates a local mutation followed by fire-and-forget cloud replication.

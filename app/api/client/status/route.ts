@@ -48,11 +48,13 @@ export async function GET(req: NextRequest) {
     convex.query(api.variables.getByKey, { key: "summary" }),
     convex.query(api.variables.getByKey, { key: "blocklist" }),
     convex.query(api.variables.getByKey, { key: "break" }),
+    convex.query(api.variables.getByKey, { key: "system_update" }),
   ]);
 
   let heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
   let summary = summaryVar?.value as SummaryValue | undefined;
   let activeBreak = breakVar?.value as BreakValue | null;
+  let systemUpdate = systemUpdateVar?.value || null;
 
   // 3. Fetch Initial Logs (for reconciliation check)
   const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
@@ -104,5 +106,6 @@ export async function GET(req: NextRequest) {
     summary,
     blocklist: blocklistVar?.value || [],
     logs: (rawLogs as Log[]).map(mapConvexDoc),
+    systemUpdate: systemUpdate,
   });
 }
