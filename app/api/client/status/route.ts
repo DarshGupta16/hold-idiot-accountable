@@ -104,13 +104,14 @@ export async function GET(req: NextRequest) {
     }
 
     // 5. Final Assembly
+    const logsToMap = (rawLogs as Log[]) || [];
     return NextResponse.json({
       activeSession: mapConvexDoc(activeSessionRaw),
       activeBreak: activeBreak,
       lastHeartbeat: heartbeatValue,
       summary,
       blocklist: blocklistVar?.value || [],
-      logs: (rawLogs as Log[]).map(mapConvexDoc),
+      logs: logsToMap.map(mapConvexDoc),
       systemUpdate: systemUpdate,
     });
   } catch (error) {
