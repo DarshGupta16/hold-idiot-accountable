@@ -4,8 +4,7 @@ import { internal } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 import { generateSessionSummary } from "@/lib/backend/ai";
 import { replicateToCloud } from "@/lib/backend/sync";
-
-export const dynamic = "force-dynamic";
+import { asPublic } from "@/lib/backend/types";
 
 export async function POST(req: NextRequest) {
   const isAuthenticated = await verifySession(req);
@@ -16,60 +15,44 @@ export async function POST(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const rawSessions = await convex.query(internal.studySessions.list, {
+    const rawSessions = await convex.query(asPublic(internal.studySessions.list), {
       paginationOpts: { numItems: 1, cursor: null },
     });
+
+    if (!rawSessions.page || rawSessions.page.length === 0) {
+      return NextResponse.json({ error: "No sessions found" }, { status: 404 });
+    }
+
     const session = rawSessions.page[0];
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "No session found" },
-        { status: 404 },
-      );
+    const currentSummaryVar = await convex.query(asPublic(internal.variables.getByKey), { key: "summary" });
+    
+    // Check if summary already exists for this session
+    if (currentSummaryVar?.value?.session_id === session._id) {
+       return NextResponse.json({ success: true, summary: currentSummaryVar.value, alreadyGenerated: true });
     }
 
-    // 1. Quota / Cooldown Check
-    const currentSummaryVar = await convex.query(internal.variables.getByKey, { key: "summary" });
-    const currentSummary = currentSummaryVar?.value;
+    const logs = await convex.query(asPublic(internal.logs.getBySessionAsc), { sessionId: session._id });
 
-    if (currentSummary && currentSummary.session_id === session._id) {
-      const generatedAt = new Date(currentSummary.generated_at).getTime();
-      const now = Date.now();
-      const fiveMinutesInMs = 5 * 60 * 1000;
+    const actualDuration = session.ended_at 
+      ? (new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 1000
+      : undefined;
 
-      if (now - generatedAt < fiveMinutesInMs) {
-        return NextResponse.json({ success: true, summary: currentSummary, cached: true });
-      }
-    }
-
-    const logs = await convex.query(internal.logs.getBySessionAsc, { sessionId: session._id });
-
-    // 4. Calculate Duration
-    const startTime = new Date(session.started_at);
-    const endTime = session.ended_at ? new Date(session.ended_at) : new Date();
-    const actualDuration = (endTime.getTime() - startTime.getTime()) / 1000;
-
-    // 5. Generate Summary
-    const reason = session.end_note?.startsWith("Client reason: ") 
-      ? session.end_note.replace("Client reason: ", "") 
-      : session.end_note;
-
-    const aiResult = await generateSessionSummary(logs, {
+    const aiResult = await generateSessionSummary(logs as any, {
       subject: session.subject,
-      status: session.status,
       plannedDuration: session.planned_duration_sec,
-      actualDuration: actualDuration,
-      reason: reason,
+      actualDuration,
+      status: session.status,
+      reason: session.end_note,
     });
 
-    const serverNow = new Date().toISOString();
     const variableValue = {
-      ...aiResult,
-      generated_at: serverNow,
       session_id: session._id,
+      ...aiResult,
+      generated_at: new Date().toISOString(),
     };
 
-    await convex.mutation(internal.variables.upsert, {
+    await convex.mutation(asPublic(internal.variables.upsert), {
       key: "summary",
       value: variableValue,
     });

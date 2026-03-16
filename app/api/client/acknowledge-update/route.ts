@@ -3,6 +3,7 @@ import { getLocalClient, getCloudClient } from "@/lib/backend/convex";
 import { internal } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
 import { APP_UPDATE_VAR_KEY } from "@/lib/backend/variables";
+import { asPublic } from "@/lib/backend/types";
 
 export async function POST(req: NextRequest) {
   const isAuthenticated = await verifySession(req);
@@ -14,35 +15,31 @@ export async function POST(req: NextRequest) {
   const cloud = getCloudClient();
 
   try {
-    // 1. Get the current value from cloud (or local if cloud is unavailable)
     let current;
     if (cloud) {
-      current = await cloud.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+      current = await cloud.query(asPublic(internal.variables.getByKey), { key: APP_UPDATE_VAR_KEY });
     } else {
-      current = await local.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+      current = await local.query(asPublic(internal.variables.getByKey), { key: APP_UPDATE_VAR_KEY });
     }
 
-    if (!current) {
-      return NextResponse.json({ error: "No update found" }, { status: 404 });
+    if (!current || !current.value) {
+      return NextResponse.json({ success: true, message: "No update to acknowledge" });
     }
 
     const updatedValue = {
-      ...current.value,
+      ...(current.value as object),
       seen: true,
-      isNew: false, // Once acknowledged, it's no longer "new"
     };
 
-    // 2. Update cloud first (if available) - source of truth
     if (cloud) {
-      await cloud.mutation(internal.variables.upsert, {
+      await cloud.mutation(asPublic(internal.variables.upsert), {
         key: APP_UPDATE_VAR_KEY,
         value: updatedValue,
       });
       console.log(`[UpdateAck] Acknowledged update in cloud DB: ${APP_UPDATE_VAR_KEY}`);
     }
 
-    // 3. Update local to reflect immediately
-    await local.mutation(internal.variables.upsert, {
+    await local.mutation(asPublic(internal.variables.upsert), {
       key: APP_UPDATE_VAR_KEY,
       value: updatedValue,
     });

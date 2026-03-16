@@ -1,4 +1,28 @@
 import { z } from "zod";
+import { FunctionReference, FunctionType } from "convex/server";
+
+/**
+ * Utility to cast an internal Convex function reference to a public one.
+ * This is useful when using ConvexHttpClient with an admin/deploy key,
+ * as it allows calling internal functions while maintaining type safety
+ * for arguments and return types.
+ */
+export type AsPublic<T> = T extends FunctionReference<
+  infer Type,
+  "internal",
+  infer Args,
+  infer Return,
+  infer ComponentPath
+>
+  ? FunctionReference<Type, "public", Args, Return, ComponentPath>
+  : T;
+
+/**
+ * Helper to cast an internal function reference to public at runtime.
+ */
+export function asPublic<T>(fn: T): AsPublic<T> {
+  return fn as any;
+}
 
 // Re-export Convex schema types from centralized schema file
 export type {
@@ -9,6 +33,7 @@ export type {
   LogType,
   HeartbeatValue,
   SummaryValue,
+  BreakValue,
 } from "./schema";
 
 // Backward compatibility aliases

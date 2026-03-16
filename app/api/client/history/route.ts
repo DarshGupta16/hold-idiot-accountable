@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLocalClient } from "@/lib/backend/convex";
 import { internal } from "@/convex/_generated/api";
 import { verifySession } from "@/lib/backend/auth";
-
-export const dynamic = "force-dynamic";
+import { asPublic } from "@/lib/backend/types";
 
 /**
  * Helper to map Convex document to existing frontend shape
  */
-function mapConvexDoc<T extends { _id: string; _creationTime: number }>(doc: T) {
+function mapConvexDoc<T extends { _id: any; _creationTime: number }>(doc: T | null) {
   if (!doc) return null;
   const { _id, _creationTime, ...rest } = doc;
   return {
     ...rest,
-    id: _id,
+    id: String(_id),
     created_at: new Date(_creationTime).toISOString(),
   };
 }
@@ -25,18 +24,17 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const numItems = parseInt(searchParams.get("perPage") || "20");
-  const cursor = searchParams.get("cursor") || null;
+  const numItems = parseInt(searchParams.get("perPage") || "10", 10);
+  const cursor = searchParams.get("cursor");
 
   const convex = getLocalClient();
 
   try {
-    const result = await convex.query(internal.studySessions.list, {
+    const result = await convex.query(asPublic(internal.studySessions.list), {
       paginationOpts: { numItems, cursor },
     });
 
     // Convex pagination returns { page, isDone, continueCursor }
-    // pocketbase returns { page, perPage, totalItems, totalPages, items }
     // mapping to something frontend can use:
     return NextResponse.json({
       items: result.page.map(mapConvexDoc),
