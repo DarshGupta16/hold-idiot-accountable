@@ -10,6 +10,13 @@ export function useSessionState() {
     refreshInterval: 3000,
   });
 
+  // Client-side auth check
+  useEffect(() => {
+    if (data?.error === "Unauthorized") {
+      window.location.href = "/login";
+    }
+  }, [data]);
+
   // Client-side duration ticker
   const startedAt = data?.activeSession?.started_at || data?.activeBreak?.started_at;
   const plannedDuration = data?.activeSession?.planned_duration_sec || data?.activeBreak?.duration_sec || 0;
