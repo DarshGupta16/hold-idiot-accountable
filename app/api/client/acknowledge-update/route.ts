@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
     // 1. Get the current value from cloud (or local if cloud is unavailable)
     let current;
     if (cloud) {
-      current = await cloud.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+      current = await cloud.query(internal.variables.getByKey as any, { key: APP_UPDATE_VAR_KEY });
     } else {
-      current = await local.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+      current = await local.query(internal.variables.getByKey as any, { key: APP_UPDATE_VAR_KEY });
     }
 
     if (!current) {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Update cloud first (if available) - source of truth
     if (cloud) {
-      await cloud.mutation(internal.variables.upsert, {
+      await cloud.mutation(internal.variables.upsert as any, {
         key: APP_UPDATE_VAR_KEY,
         value: updatedValue,
       });
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Update local to reflect immediately
-    await local.mutation(internal.variables.upsert, {
+    await local.mutation(internal.variables.upsert as any, {
       key: APP_UPDATE_VAR_KEY,
       value: updatedValue,
     });

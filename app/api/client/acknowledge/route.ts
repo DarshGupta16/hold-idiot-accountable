@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const unacknowledged = await convex.query(internal.logs.getUnacknowledgedAlerts);
+    const unacknowledged = await convex.query(internal.logs.getUnacknowledgedAlerts as any);
     console.log(
       `[Acknowledge] Found ${unacknowledged.length} unacknowledged logs.`,
     );
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
           ...(record.metadata as Record<string, unknown> || {}),
           acknowledged: true,
         };
-        const p1 = convex.mutation(internal.logs.updateMetadata, {
+        const p1 = convex.mutation(internal.logs.updateMetadata as any, {
           id: record._id,
           metadata,
         });

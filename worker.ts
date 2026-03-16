@@ -22,7 +22,7 @@ if (!config.convexUrl || !config.convexAdminKey) {
 async function checkBreaks() {
   try {
     const convex = getLocalClient();
-    const breakVar = await convex.query(internal.variables.getByKey, { key: "break" });
+    const breakVar = await convex.query(internal.variables.getByKey as any, { key: "break" });
 
     if (!breakVar) return;
 
@@ -64,7 +64,7 @@ async function checkHeartbeat() {
     const convex = getLocalClient();
 
     // 1. Get Last Heartbeat
-    const heartbeatVar = await convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" });
+    const heartbeatVar = await convex.query(internal.variables.getByKey as any, { key: "lastHeartbeatAt" });
     const lastHeartbeat = heartbeatVar?.value;
 
     if (!lastHeartbeat?.timestamp) {
@@ -84,7 +84,7 @@ async function checkHeartbeat() {
     // 2. Check threshold
     if (diffSeconds > HEARTBEAT_THRESHOLD_SECONDS) {
       // 3. Check for Active Session
-      const activeSession = await convex.query(internal.studySessions.getActive);
+      const activeSession = await convex.query(internal.studySessions.getActive as any);
       if (!activeSession) return;
 
       // 4. Log missed heartbeat immediately via derivation layer

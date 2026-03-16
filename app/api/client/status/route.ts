@@ -45,12 +45,12 @@ export async function GET(req: NextRequest) {
       breakVar,
       systemUpdateVar,
     ] = await Promise.all([
-      convex.query(internal.studySessions.getActive) as Promise<StudySession | null>,
-      convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" }),
-      convex.query(internal.variables.getByKey, { key: "summary" }),
-      convex.query(internal.variables.getByKey, { key: "blocklist" }),
-      convex.query(internal.variables.getByKey, { key: "break" }),
-      convex.query(internal.variables.getByKey, { key: "system_update" }),
+      convex.query(internal.studySessions.getActive as any) as Promise<StudySession | null>,
+      convex.query(internal.variables.getByKey as any, { key: "lastHeartbeatAt" }),
+      convex.query(internal.variables.getByKey as any, { key: "summary" }),
+      convex.query(internal.variables.getByKey as any, { key: "blocklist" }),
+      convex.query(internal.variables.getByKey as any, { key: "break" }),
+      convex.query(internal.variables.getByKey as any, { key: "system_update" }),
     ]);
 
     let heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
@@ -61,8 +61,8 @@ export async function GET(req: NextRequest) {
     // 3. Fetch Initial Logs (for reconciliation check)
     const sessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
     let rawLogs = (sessionId 
-      ? await convex.query(internal.logs.getBySession, { sessionId })
-      : await convex.query(internal.logs.listRecent, { limit: 20 })) || [];
+      ? await convex.query(internal.logs.getBySession as any, { sessionId })
+      : await convex.query(internal.logs.listRecent as any, { limit: 20 })) || [];
     
     const typedLogs = rawLogs as Log[];
 
@@ -84,12 +84,12 @@ export async function GET(req: NextRequest) {
         breakVar,
         systemUpdateVar,
       ] = await Promise.all([
-        convex.query(internal.studySessions.getActive) as Promise<StudySession | null>,
-        convex.query(internal.variables.getByKey, { key: "lastHeartbeatAt" }),
-        convex.query(internal.variables.getByKey, { key: "summary" }),
-        convex.query(internal.variables.getByKey, { key: "blocklist" }),
-        convex.query(internal.variables.getByKey, { key: "break" }),
-        convex.query(internal.variables.getByKey, { key: "system_update" }),
+        convex.query(internal.studySessions.getActive as any) as Promise<StudySession | null>,
+        convex.query(internal.variables.getByKey as any, { key: "lastHeartbeatAt" }),
+        convex.query(internal.variables.getByKey as any, { key: "summary" }),
+        convex.query(internal.variables.getByKey as any, { key: "blocklist" }),
+        convex.query(internal.variables.getByKey as any, { key: "break" }),
+        convex.query(internal.variables.getByKey as any, { key: "system_update" }),
       ]);
 
       heartbeatValue = heartbeatVar?.value as HeartbeatValue | null;
@@ -99,8 +99,8 @@ export async function GET(req: NextRequest) {
       
       const newSessionId = activeSessionRaw?._id || (summary?.session_id !== "break-system" ? (summary?.session_id as any) : null);
       rawLogs = (newSessionId 
-        ? await convex.query(internal.logs.getBySession, { sessionId: newSessionId })
-        : await convex.query(internal.logs.listRecent, { limit: 20 })) || [];
+        ? await convex.query(internal.logs.getBySession as any, { sessionId: newSessionId })
+        : await convex.query(internal.logs.listRecent as any, { limit: 20 })) || [];
     }
 
     // 5. Final Assembly

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const rawSessions = await convex.query(internal.studySessions.list, {
+    const rawSessions = await convex.query(internal.studySessions.list as any, {
       paginationOpts: { numItems: 1, cursor: null },
     });
     const session = rawSessions.page[0];
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Quota / Cooldown Check
-    const currentSummaryVar = await convex.query(internal.variables.getByKey, { key: "summary" });
+    const currentSummaryVar = await convex.query(internal.variables.getByKey as any, { key: "summary" });
     const currentSummary = currentSummaryVar?.value;
 
     if (currentSummary && currentSummary.session_id === session._id) {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const logs = await convex.query(internal.logs.getBySessionAsc, { sessionId: session._id });
+    const logs = await convex.query(internal.logs.getBySessionAsc as any, { sessionId: session._id });
 
     // 4. Calculate Duration
     const startTime = new Date(session.started_at);
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       session_id: session._id,
     };
 
-    await convex.mutation(internal.variables.upsert, {
+    await convex.mutation(internal.variables.upsert as any, {
       key: "summary",
       value: variableValue,
     });

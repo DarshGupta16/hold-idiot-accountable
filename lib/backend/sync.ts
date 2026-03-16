@@ -16,22 +16,22 @@ export async function bootstrapFromCloud() {
   if (!cloud) return;
 
   try {
-    const sessionCount = await local.query(internal.studySessions.count);
-    const logCount = await local.query(internal.logs.count);
-    const varCount = await local.query(internal.variables.count);
+    const sessionCount = await local.query(internal.studySessions.count as any);
+    const logCount = await local.query(internal.logs.count as any);
+    const varCount = await local.query(internal.variables.count as any);
 
     const total = sessionCount + logCount + varCount;
 
     if (total === 0) {
       console.log("[Sync] Local DB is empty. Bootstrapping from cloud...");
-      const data = await cloud.query(internal.sync.exportAll);
+      const data = await cloud.query(internal.sync.exportAll as any);
 
       if (
         data.sessions.length > 0 ||
         data.logs.length > 0 ||
         data.variables.length > 0
       ) {
-        await local.mutation(internal.sync.importAll, {
+        await local.mutation(internal.sync.importAll as any, {
           sessions: data.sessions,
           logs: data.logs,
           variables: data.variables,
@@ -95,10 +95,10 @@ export async function reconcile() {
 
   try {
     // 1. Ensure we pull the cloud-controlled update variable specifically
-    const cloudUpdateVar = await cloud.query(internal.variables.getByKey, { key: APP_UPDATE_VAR_KEY });
+    const cloudUpdateVar = await cloud.query(internal.variables.getByKey as any, { key: APP_UPDATE_VAR_KEY });
     if (cloudUpdateVar) {
       console.log("[Sync] Synchronizing cloud-controlled update variable...");
-      await local.mutation(internal.variables.upsert, {
+      await local.mutation(internal.variables.upsert as any, {
         key: APP_UPDATE_VAR_KEY,
         value: cloudUpdateVar.value,
       });
@@ -110,26 +110,26 @@ export async function reconcile() {
         message: "System initialized. Monitoring active.",
       };
       // Initialize in cloud
-      await cloud.mutation(internal.variables.upsert, {
+      await cloud.mutation(internal.variables.upsert as any, {
         key: APP_UPDATE_VAR_KEY,
         value: defaultValue,
       });
       // Also sync to local
-      await local.mutation(internal.variables.upsert, {
+      await local.mutation(internal.variables.upsert as any, {
         key: APP_UPDATE_VAR_KEY,
         value: defaultValue,
       });
     }
 
     // Get counts from both sides
-    const localSessions = await local.query(internal.studySessions.count);
-    const localLogs = await local.query(internal.logs.count);
-    const localVars = await local.query(internal.variables.count);
+    const localSessions = await local.query(internal.studySessions.count as any);
+    const localLogs = await local.query(internal.logs.count as any);
+    const localVars = await local.query(internal.variables.count as any);
     const localTotal = localSessions + localLogs + localVars;
 
-    const cloudSessions = await cloud.query(internal.studySessions.count);
-    const cloudLogs = await cloud.query(internal.logs.count);
-    const cloudVars = await cloud.query(internal.variables.count);
+    const cloudSessions = await cloud.query(internal.studySessions.count as any);
+    const cloudLogs = await cloud.query(internal.logs.count as any);
+    const cloudVars = await cloud.query(internal.variables.count as any);
     const cloudTotal = cloudSessions + cloudLogs + cloudVars;
 
     console.log(
@@ -146,12 +146,12 @@ export async function reconcile() {
       console.log(
         "[Sync] Cloud is empty but local has data — pushing to cloud...",
       );
-      const data = await local.query(internal.sync.exportAll);
+      const data = await local.query(internal.sync.exportAll as any);
       
       // Filter out cloud-controlled variables before pushing
       const filteredVariables = data.variables.filter((v: any) => v.key !== APP_UPDATE_VAR_KEY);
 
-      await cloud.mutation(internal.sync.importAll, {
+      await cloud.mutation(internal.sync.importAll as any, {
         sessions: data.sessions,
         logs: data.logs,
         variables: filteredVariables,

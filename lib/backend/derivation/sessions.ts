@@ -63,7 +63,7 @@ export async function processSessionStart(
   
   // Local log with sessionId
   const local = getLocalClient();
-  await local.mutation(internal.logs.create, logData);
+  await local.mutation(internal.logs.create as any, logData);
 
   // Replicate log to cloud (without ID to avoid mismatch)
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
@@ -98,13 +98,13 @@ export async function processSessionStop(
     session: session._id,
   };
   
-  await convex.mutation(internal.logs.create, logData);
+  await convex.mutation(internal.logs.create as any, logData);
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });
 
   // Build timeline from logs for this session
-  const logs = await convex.query(internal.logs.getBySessionAsc, {
+  const logs = await convex.query(internal.logs.getBySessionAsc as any, {
     sessionId: session._id,
   });
 
@@ -164,7 +164,7 @@ export async function processSessionStop(
   };
   if (note) sessionUpdate.end_note = note;
 
-  await convex.mutation(internal.studySessions.update, {
+  await convex.mutation(internal.studySessions.update as any, {
     id: session._id,
     updates: sessionUpdate,
   });
@@ -173,14 +173,14 @@ export async function processSessionStop(
   try {
     const cloud = getCloudClient();
     if (cloud) {
-      const cloudSession = await cloud.query(internal.studySessions.getActive);
+      const cloudSession = await cloud.query(internal.studySessions.getActive as any);
       if (cloudSession) {
         // Sanity check: only update if it looks like the same session
         const isSameSession = cloudSession.started_at === session.started_at && 
                            cloudSession.subject === session.subject;
         
         if (isSameSession) {
-          await cloud.mutation(internal.studySessions.update, {
+          await cloud.mutation(internal.studySessions.update as any, {
             id: cloudSession._id,
             updates: sessionUpdate,
           });

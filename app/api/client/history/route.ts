@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const convex = getLocalClient();
 
   try {
-    const result = await convex.query(internal.studySessions.list, {
+    const result = await convex.query(internal.studySessions.list as any, {
       paginationOpts: { numItems, cursor },
     });
 
