@@ -4,6 +4,7 @@ import { replicateToCloud } from "@/lib/backend/sync";
 import {
   BlocklistEventSchema,
   BlocklistEventType,
+  asPublic,
 } from "@/lib/backend/types";
 import { z } from "zod";
 import { getActiveSession } from "@/lib/backend/invariants";
@@ -34,7 +35,7 @@ export async function processBlocklistEvent(
     session: activeSession ? activeSession._id : undefined,
   };
   
-  await convex.mutation(internal.logs.create, logData);
+  await convex.mutation(asPublic(internal.logs.create), logData);
   replicateToCloud("logs", "create", { ...logData, session: undefined }).catch((err) => {
     console.error("[Sync] Background log replication failed:", err);
   });

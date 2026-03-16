@@ -2,7 +2,7 @@ import { getLocalClient } from "@/lib/backend/convex";
 import { internal } from "@/convex/_generated/api";
 import { config } from "@/lib/backend/config";
 import { BreakValue, Log, StudySession, HeartbeatValue } from "@/lib/backend/schema";
-import { EventType } from "@/lib/backend/types";
+import { EventType, asPublic } from "@/lib/backend/types";
 import { processBreakStop } from "./breaks";
 import { replicatedMutation } from "@/lib/backend/sync";
 
@@ -76,7 +76,7 @@ export async function reconcileLazyState(context: {
             session: activeSession?._id,
           };
           
-          await convex.mutation(internal.logs.create, logData);
+          await convex.mutation(asPublic(internal.logs.create), logData);
           return true; // State changed
         } catch (e) {
           console.error("Failed to log lazy missed heartbeat:", e);

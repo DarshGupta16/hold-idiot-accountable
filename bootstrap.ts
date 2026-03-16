@@ -6,6 +6,13 @@
 import { ConvexHttpClient } from "convex/browser";
 import { internal } from "./convex/_generated/api";
 
+/**
+ * Helper to cast an internal function reference to public at runtime.
+ */
+function asPublic(fn: any): any {
+  return fn;
+}
+
 const [, , adminKey, cloudUrl, cloudDeployKey] = process.argv;
 
 function createAuthenticatedClient(url: string, key: string): ConvexHttpClient {
@@ -25,9 +32,9 @@ async function bootstrap() {
   const local = createAuthenticatedClient("http://127.0.0.1:3210", adminKey);
 
   // Check if local has any data
-  const sc = (await local.query(internal.studySessions.count as any, {})) as number;
-  const lc = (await local.query(internal.logs.count as any, {})) as number;
-  const vc = (await local.query(internal.variables.count as any, {})) as number;
+  const sc = (await local.query(asPublic(internal.studySessions.count), {})) as number;
+  const lc = (await local.query(asPublic(internal.logs.count), {})) as number;
+  const vc = (await local.query(asPublic(internal.variables.count), {})) as number;
   const total = sc + lc + vc;
   console.log("[bootstrap] Local record count: " + total);
 
@@ -40,7 +47,7 @@ async function bootstrap() {
   const cloud = createAuthenticatedClient(cloudUrl, cloudDeployKey);
 
   // Pull data from cloud
-  const data = (await cloud.query(internal.sync.exportAll as any, {})) as {
+  const data = (await cloud.query(asPublic(internal.sync.exportAll), {})) as {
     sessions: unknown[];
     logs: unknown[];
     variables: unknown[];
@@ -55,7 +62,7 @@ async function bootstrap() {
   }
 
   // Import to local
-  await local.mutation(internal.sync.importAll as any, {
+  await local.mutation(asPublic(internal.sync.importAll), {
     sessions: data.sessions,
     logs: data.logs,
     variables: data.variables,
