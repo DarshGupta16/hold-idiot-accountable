@@ -1,8 +1,8 @@
 import { replicatedMutation } from "@/lib/backend/sync";
-import { HeartbeatSchema, MissedHeartbeatSchema } from "@/lib/backend/types";
+import { HeartbeatSchema, MissedHeartbeatSchema, asPublic } from "@/lib/backend/types";
 import { z } from "zod";
 import { getLocalClient } from "@/lib/backend/convex";
-import { api } from "@/convex/_generated/api";
+import { internal } from "@/convex/_generated/api";
 import { replicateToCloud } from "@/lib/backend/sync";
 
 export async function processHeartbeat(
@@ -51,7 +51,7 @@ export async function processMissedHeartbeat(
     session: payload.session_id,
   };
 
-  await convex.mutation(api.logs.create, logData);
+  await convex.mutation(asPublic(internal.logs.create), logData);
   await replicateToCloud("logs", "create", { ...logData, session: undefined });
   console.log("[Heartbeat] Missed heartbeat derivation processed.");
 }

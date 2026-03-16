@@ -33,6 +33,7 @@ export type {
   LogType,
   HeartbeatValue,
   SummaryValue,
+  BreakValue,
 } from "./schema";
 
 // Backward compatibility aliases
